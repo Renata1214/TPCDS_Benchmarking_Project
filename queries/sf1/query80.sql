@@ -1,7 +1,8 @@
--- TPC-DS Query 80 - DuckDB Compatible
--- Fix applied: "X days" -> "INTERVAL X DAY"
+-- TPC-DS Query 80 - DuckDB Compatible (SF=1)
+-- Fixes applied:
+--   * ANSI date arithmetic: "X days" -> "INTERVAL X DAY"
 --
--- ORIGINAL (commented out):
+-- ORIGINAL (ANSI SQL):
 -- with ssr as
 --  (select  s_store_id as store_id,
 --           sum(ss_ext_sales_price) as sales,

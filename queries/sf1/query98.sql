@@ -1,7 +1,8 @@
--- TPC-DS Query 98 - DuckDB Compatible
--- Fix applied: "X days" -> "INTERVAL X DAY"
+-- TPC-DS Query 98 - DuckDB Compatible (SF=1)
+-- Fixes applied:
+--   * ANSI date arithmetic: "X days" -> "INTERVAL X DAY"
 --
--- ORIGINAL (commented out):
+-- ORIGINAL (ANSI SQL):
 -- select i_item_id
 --       ,i_item_desc 
 --       ,i_category 

@@ -1,7 +1,8 @@
--- TPC-DS Query 92 - DuckDB Compatible
--- Fix applied: "X days" -> "INTERVAL X DAY"
+-- TPC-DS Query 92 - DuckDB Compatible (SF=1)
+-- Fixes applied:
+--   * ANSI date arithmetic: "X days" -> "INTERVAL X DAY"
 --
--- ORIGINAL (commented out):
+-- ORIGINAL (ANSI SQL):
 -- select  
 --    sum(ws_ext_discount_amt)  as "Excess Discount Amount" 
 -- from 
