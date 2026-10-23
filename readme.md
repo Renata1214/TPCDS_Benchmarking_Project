@@ -132,7 +132,7 @@ bash scripts/01_generate_queries.sh
 
 The command above regenerates queries for all four scales. To generate only selected scales, pass whole-number GB values, for example `bash scripts/01_generate_queries.sh 2 8`. To use a single scale through the legacy environment variable, set `SCALE=4`.
 
-For each scale, the runner keeps one DuckDB CLI process open while it runs all queries. Each query's warmup and measured repetitions therefore use the same DuckDB process, so DuckDB's in-process buffer cache can reuse data pages. Warmups are excluded from metrics; the default is one warmup per query. Each invocation creates a timestamped directory under `results/benchmark_runs/`. To benchmark the reference scale too, first generate it and then add `1.0` to the runner's factor list. The directory contains:
+For each scale, the runner keeps one DuckDB CLI process open while it runs all queries. It first completes each warmup pass across the entire query set, then completes each measured pass across the entire set, in ascending query-number order. This makes each measured iteration a full workload round rather than grouping repetitions by query. The queries share DuckDB's in-process buffer cache; warmups are excluded from metrics, and the default is one warmup pass. If a query times out and DuckDB must restart, each query is warmed in the restarted process before its next measurement. Each invocation creates a timestamped directory under `results/benchmark_runs/`. To benchmark the reference scale too, first generate it and then add `1.0` to the runner's factor list. The directory contains:
 
 - `query_metrics.csv`: one row per measured query execution, with factor, query, iteration, status, elapsed wall time, user/system CPU time, peak resident memory, exit code, error summary, database size, SQL file, and log path.
 - `summaries/query_summary_sf1.csv`, `summaries/query_summary_sf2.csv`, etc.: separate per-scale summary CSVs with per-query status counts and median/mean elapsed time and CPU time across successful measured runs.
@@ -145,7 +145,24 @@ For one warmup and five measured executions of each query:
 REPEATS=5 WARMUP_RUNS=1 REFERENCE_SCALE_GB=10 bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.5
 ```
 
-The warmup is excluded from the measured rows and summary statistics. Set `WARMUP_RUNS` to change the number of warmups (or `0` to disable them), and adjust the per-execution timeout with `TIMEOUT_SECONDS=600`. If a query times out, its DuckDB process must be restarted; subsequent measured runs for that query are warmed again before timing. Benchmark time and memory measurements are machine- and cache-dependent; keep the same machine, configuration, and run conditions when comparing factors.
+Warmup passes are excluded from measured rows and summary statistics. Set `WARMUP_RUNS` to change the number of full-workload warmup passes (or `0` to disable them), and adjust the per-execution timeout with `TIMEOUT_SECONDS=600`. A timeout restarts DuckDB; the runner warms each query in the new process before measuring it. Benchmark time and memory measurements are machine- and cache-dependent; keep the same machine, configuration, query order, and run conditions when comparing factors.
+
+### Plot benchmark results
+
+Generate charts and a sortable CSV from a completed benchmark run:
+
+```bash
+python3 scripts/plot_benchmark_results.py results/benchmark_runs/<run_id>
+```
+
+The script reads the run's `summaries/query_summary_sf<scale>.csv` files and writes its output to `<run_dir>/plots/` by default. Open `plots/index.html` for a report containing:
+
+- A small-multiple grid with one runtime trend per query across the selected factors. Each panel uses its own y-axis to make changes in that query visible; use the ranked charts for absolute time comparisons.
+- One fastest-to-slowest query ranking chart per scale. Queries without a successful median are shown after timed queries.
+- An estimated workload-time chart, calculated by summing per-query medians that are available; check the execution-outcomes chart to see whether any queries failed or timed out.
+- An execution-outcomes chart and `ranked_queries.csv` with exact per-query median times, run counts, failures, and timeouts.
+
+The chart generator uses only the Python standard library and writes SVG, HTML, and CSV files.
 
 ### Save query plans for each scale
 
@@ -166,3 +183,11 @@ python3 scripts/combine_explain_outputs.py results/explain_runs/20261023_140001_
 ```
 
 This creates `combined_explain.txt` and `combined_explain_analyze.txt` in each `sf<scale>/` directory. Query sections are sorted numerically and labeled with their original filenames. The script reports a warning if the run has different numbers of output files for the two modes.
+
+
+
+
+DELETE
+Command to see all plots in terminal
+cd /mnt/c/Users/Regina/TPCDS
+explorer.exe "$(wslpath -w results/benchmark_runs/20261023_164300_814393/plots/index.html)"
