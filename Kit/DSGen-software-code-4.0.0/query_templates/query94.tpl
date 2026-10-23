@@ -49,7 +49,7 @@ from
   ,web_site
 where
     d_date between '[YEAR]-[MONTH]-01' and 
-           (cast('[YEAR]-[MONTH]-01' as date) + 60 days)
+           (cast('[YEAR]-[MONTH]-01' as date) + INTERVAL '60 days')
 and ws1.ws_ship_date_sk = d_date_sk
 and ws1.ws_ship_addr_sk = ca_address_sk
 and ca_state = '[STATE]'
@@ -64,4 +64,3 @@ and not exists(select *
                where ws1.ws_order_number = wr1.wr_order_number)
 order by count(distinct ws_order_number)
 [_LIMITC];
-

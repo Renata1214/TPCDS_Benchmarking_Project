@@ -55,7 +55,7 @@ where
   	and i_category in ('[CATEGORY.1]', '[CATEGORY.2]', '[CATEGORY.3]')
   	and ws_sold_date_sk = d_date_sk
 	and d_date between cast('[SDATE]' as date) 
-				and (cast('[SDATE]' as date) + 30 days)
+				and (cast('[SDATE]' as date) + INTERVAL '30 days')
 group by 
 	i_item_id
         ,i_item_desc 
@@ -69,4 +69,3 @@ order by
         ,i_item_desc
         ,revenueratio
 [_LIMITC];
-

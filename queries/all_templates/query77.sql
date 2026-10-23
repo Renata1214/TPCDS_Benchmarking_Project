@@ -8,13 +8,13 @@ with ss as
       store
  where ss_sold_date_sk = d_date_sk
        and d_date between cast('1998-08-04' as date) 
-                  and (cast('1998-08-04' as date) + INTERVAL '30 days') 
+                  and (cast('1998-08-04' as date) + INTERVAL '30 days')
        and ss_store_sk = s_store_sk
  group by s_store_sk)
  ,
  sr as
  (select s_store_sk,
-         sum(sr_return_amt) as returns,
+         sum(sr_return_amt) as return_amt,
          sum(sr_net_loss) as profit_loss
  from store_returns,
       date_dim,
@@ -37,7 +37,7 @@ with ss as
  ), 
  cr as
  (select cr_call_center_sk,
-         sum(cr_return_amount) as returns,
+         sum(cr_return_amount) as return_amt,
          sum(cr_net_loss) as profit_loss
  from catalog_returns,
       date_dim
@@ -60,7 +60,7 @@ with ss as
  group by wp_web_page_sk), 
  wr as
  (select wp_web_page_sk,
-        sum(wr_return_amt) as returns,
+        sum(wr_return_amt) as return_amt,
         sum(wr_net_loss) as profit_loss
  from web_returns,
       date_dim,
@@ -73,13 +73,13 @@ with ss as
   select  channel
         , id
         , sum(sales) as sales
-        , sum(returns) as returns
+        , sum(return_amt) as "returns"
         , sum(profit) as profit
  from 
  (select 'store channel' as channel
         , ss.s_store_sk as id
         , sales
-        , coalesce(returns, 0) as returns
+        , coalesce(return_amt, 0) as return_amt
         , (profit - coalesce(profit_loss,0)) as profit
  from   ss left join sr
         on  ss.s_store_sk = sr.s_store_sk
@@ -87,7 +87,7 @@ with ss as
  select 'catalog channel' as channel
         , cs_call_center_sk as id
         , sales
-        , returns
+        , return_amt
         , (profit - profit_loss) as profit
  from  cs
        , cr
@@ -95,7 +95,7 @@ with ss as
  select 'web channel' as channel
         , ws.wp_web_page_sk as id
         , sales
-        , coalesce(returns, 0) AS returns
+        , coalesce(return_amt, 0) as return_amt
         , (profit - coalesce(profit_loss,0)) as profit
  from   ws left join wr
         on  ws.wp_web_page_sk = wr.wp_web_page_sk

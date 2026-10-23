@@ -1,0 +1,168 @@
+# Project Description 
+
+Note. This repository only covers the first part of the project described below. 
+
+For the detailed Docker impact, current artifact status, recovery notes, and step-by-step reproduction procedure, see [REPRODUCING.md](./REPRODUCING.md).
+
+TPC is a non-profit corporation that defines transaction processing and database benchmarks and disseminates objective, verifiable TPC performance data to the industry. Regarding data warehouses, two TPC benchmarks are relevant:
+
+TPC-DS, the Decision Support Benchmark, which models the decision support functions of a retail product supplier.
+TPC-DI, the Data Integration Support Benchmark, which models a typical ETL process that loads a data warehouse.
+The project of the course consist of 2 parts:
+
+Part I: Implement the TPC-DS benchmark (deadline 1/11/2026)
+Part II: Implement the TPC-DI benchmark (deadline 24/12/2026)
+You have free choice to use the tools on which the two benchmarks will be implemented. For example, the TPC-DS benchmark could be implemented on SQL Server Analysis Services, Pentaho Analysis Services (aka Mondrian), etc. Similarly, the TPC-DI benchmark could be implemented on SQL Server Integration Services, Pentaho Data Integration, Talend Data Studio, SQL scripts, etc., which then load the data warehouse on a DBMS such as SQL Server, Oracle, PostgreSQL, etc.
+
+Furthermore, both benchmarks must be implemented with several scale factors, which determine the size of the resulting data warehouse. You DO NOT need to use the scale factors mentioned in the TPC requirements. The pedagogical objectives aimed at is that you learn how to properly perform a benchmark. Therefore, you need to estimate the biggest scale factor that you can put on your own computer: this will be your reference scale factor, say 1.0, and then you will need to have 3 smaller scale factors, e.g., at 0.1, 0.2, and 0.5 of the full size in order to see the evolution of the performance.
+
+The project is carried out in groups of 3-4 persons, which will be the same for the two parts. Before you can submit part I of the project, you will have to register in a group. For this, please send an email to the lecturer with the information about your group by 1/10/2026 at the latest. The submission deadlines for parts I and II are strict.
+
+The deliverables expected for each part of the project are the following:
+
+A report in pdf explaining the essential aspects of your implementation, and
+A zip file containing the code of your implementation, with all necessary instructions to be able to replicate your implementation by the lecturer in standard computing infrastructure.
+The project evaluation will count for 30% of your total grade. This may seem undervalued, however, putting effort in the project will definitely help you in achieving a better understanding of the course material which will result in a better score in the paper exam which amounts for 70% of the grade.
+
+## Running the TPC-DS scales with Docker
+
+Docker provides the Linux TPC-DS generator tools, DuckDB CLI, and benchmark prerequisites without installing them in Windows or WSL. Install Docker Desktop with its WSL 2 backend, open a terminal at the repository root, then build and run the container:
+
+```bash
+docker compose build
+docker compose run --rm tpcds
+```
+
+The default run uses reference scale 10 GB and factors `0.1`, `0.2`, and `0.5`. Pass factors to the workflow command to choose other scales:
+
+```bash
+docker compose run --rm tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.5 1.0
+```
+
+Configuration can be supplied through environment variables. For example, to run each query three times:
+
+```bash
+docker compose run --rm -e REPEATS=3 -e REFERENCE_SCALE_GB=10 tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.5
+```
+
+The repository is mounted at `/workspace`, so generated data, DuckDB databases, query files, and benchmark results remain in the project directories on the host after the container exits. The image compiles the Linux `dsdgen` and `dsqgen` tools and installs them into the mounted tools directory when it starts. Open an interactive shell instead of running the workflow with:
+
+```bash
+docker compose run --rm tpcds bash
+```
+
+For reliable benchmark timings, keep the Docker resource limits and host configuration consistent between runs. Docker Desktop may also perform better when the repository is stored in the WSL filesystem rather than on a Windows-mounted drive.
+
+## Running the TPC-DS scales directly in WSL
+
+The scripts below treat `REFERENCE_SCALE_GB` as the data size of relative factor `1.0`. The TPC-DS generator requires whole-number scale sizes of at least 1 GB. The default reference of `10` GB therefore makes factors `0.1`, `0.2`, and `0.5` generate 1, 2, and 5 GB datasets; factor `1.0` is 10 GB. Choose the largest reference your computer can handle, and choose factors/reference combinations whose products are whole-number GB values. An existing SF1 dataset/database is reused when the calculated physical scale is 1 GB.
+
+### One-command workflow
+
+From the WSL terminal, run this at the repository root:
+
+```bash
+bash scripts/run_tpcds.sh
+```
+
+This uses the default reference of 10 GB and factors `0.1`, `0.2`, and `0.5`. It creates the SQL workload only if it is missing, generates and loads the requested factors, and runs the benchmark. Pass other relative factors as arguments:
+
+```bash
+bash scripts/run_tpcds.sh 0.1 0.2 0.5 1.0
+```
+
+Set environment variables before the command to change configuration; for example, repeat each query three times:
+
+```bash
+REFERENCE_SCALE_GB=10 REPEATS=3 bash scripts/run_tpcds.sh 0.1 0.2 0.5
+```
+
+This command requires WSL prerequisites described below, including DuckDB CLI and the Linux TPC-DS generator tools. It uses existing generated query SQL when complete; set `REGENERATE_QUERIES=1` to explicitly recreate the SQL files.
+
+### Prerequisites
+
+- Run these commands from the WSL terminal.
+- Build or otherwise provide the Linux `dsdgen` executable in `Kit/DSGen-software-code-4.0.0/tools/`. The Linux `dsqgen` executable is needed only if you need to regenerate the SQL workload.
+- Install the DuckDB command-line executable as `duckdb`, plus GNU `time`, `timeout`, and Python 3. The scripts stop with an error if a required command is missing.
+- Keep the repository in the WSL filesystem or access it via `/mnt/<drive>/...`. The scripts locate the repository relative to themselves.
+
+If the Linux TPC-DS executables are missing, install the build tools (for example, `sudo apt install build-essential bison flex`) and build them from the tools directory:
+
+```bash
+cd Kit/DSGen-software-code-4.0.0/tools
+make -f Makefile.suite dsdgen dsqgen
+cd /mnt/c/Users/Regina/TPCDS
+```
+
+### Generate and load smaller data factors
+
+From the repository root:
+
+```bash
+cd /mnt/c/Users/Regina/TPCDS
+REFERENCE_SCALE_GB=10 bash scripts/04_generate_scale_data.sh 0.1 0.2 0.5
+```
+
+The script generates each factor with TPC-DS `dsdgen` when its `.dat` files are absent, creates a DuckDB database using the supplied TPC-DS schema, and loads the files. At the default reference size, the factors use databases `duckdb/tpcds_sf1.duckdb`, `duckdb/tpcds_sf2.duckdb`, and `duckdb/tpcds_sf5.duckdb`; factor `0.1` maps to 1 GB, so existing files generated with `dsdgen -scale 1 -dir .../data/sf1` are reused. If the SF1 database does not yet exist, the script loads those existing files into `duckdb/tpcds_sf1.duckdb` without regenerating them. Data files are placed in corresponding `data/sf1/`, `data/sf2/`, and `data/sf5/` directories. Its append-only generation log is `results/data_generation.csv`, including total generation-and-load time and artifact sizes.
+
+The default factors omit 1.0 because generating the reference dataset can be expensive (10 GB with the default). Add `1.0` to generate it if your computer can handle it. To rebuild a factor, set `FORCE=1`; that replaces the generated data and database for the corresponding physical scale. Use the same `REFERENCE_SCALE_GB` value when generating data and running the benchmark.
+
+The data-generation script enables `dsdgen` progress output by default, showing which table is being written and periodic progress for large tables. To suppress it, set `DSDGEN_VERBOSE=N`. To leave generation running in the background and watch its log from another WSL terminal:
+
+```bash
+cd /mnt/c/Users/Regina/TPCDS
+nohup bash scripts/04_generate_scale_data.sh 0.2 0.5 > results/data_generation.log 2>&1 &
+echo $! > results/data_generation.pid
+tail -f results/data_generation.log
+```
+
+Press `Ctrl+C` to stop following the log; this does not stop the generator. Check whether it is still running with `ps -p "$(cat results/data_generation.pid)" -o pid,etime,%cpu,%mem,stat,cmd`, and review the final exit code with `wait "$(cat results/data_generation.pid)"` only in the shell that launched it. Check the generated file sizes from another terminal with `watch -n 5 'du -sh data/sf2 data/sf5 2>/dev/null; ls -lh duckdb/tpcds_sf2.duckdb duckdb/tpcds_sf5.duckdb 2>/dev/null'`. The database files appear and grow during the subsequent DuckDB loading phase.
+
+### Run the query benchmark at each factor
+
+```bash
+REFERENCE_SCALE_GB=10 bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.5
+```
+
+Query generation creates a separate workload for each physical scale: `queries/sf1/`, `queries/sf2/`, `queries/sf4/`, and `queries/sf8/`. The benchmark uses a matching scale-specific workload when present; for other scales it falls back to `queries/all_templates/`. The latter remains a copy of the SF1 workload for compatibility.
+
+```bash
+bash scripts/01_generate_queries.sh
+```
+
+The command above regenerates queries for all four scales. To generate only selected scales, pass whole-number GB values, for example `bash scripts/01_generate_queries.sh 2 8`. To use a single scale through the legacy environment variable, set `SCALE=4`.
+
+For each scale, the runner keeps one DuckDB CLI process open while it runs all queries. Each query's warmup and measured repetitions therefore use the same DuckDB process, so DuckDB's in-process buffer cache can reuse data pages. Warmups are excluded from metrics; the default is one warmup per query. Each invocation creates a timestamped directory under `results/benchmark_runs/`. To benchmark the reference scale too, first generate it and then add `1.0` to the runner's factor list. The directory contains:
+
+- `query_metrics.csv`: one row per measured query execution, with factor, query, iteration, status, elapsed wall time, user/system CPU time, peak resident memory, exit code, error summary, database size, SQL file, and log path.
+- `summaries/query_summary_sf1.csv`, `summaries/query_summary_sf2.csv`, etc.: separate per-scale summary CSVs with per-query status counts and median/mean elapsed time and CPU time across successful measured runs.
+- `metadata.txt`: run settings and machine/DuckDB details.
+- `logs/`: individual DuckDB output and errors per query run.
+
+For one warmup and five measured executions of each query:
+
+```bash
+REPEATS=5 WARMUP_RUNS=1 REFERENCE_SCALE_GB=10 bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.5
+```
+
+The warmup is excluded from the measured rows and summary statistics. Set `WARMUP_RUNS` to change the number of warmups (or `0` to disable them), and adjust the per-execution timeout with `TIMEOUT_SECONDS=600`. If a query times out, its DuckDB process must be restarted; subsequent measured runs for that query are warmed again before timing. Benchmark time and memory measurements are machine- and cache-dependent; keep the same machine, configuration, and run conditions when comparing factors.
+
+### Save query plans for each scale
+
+Run `EXPLAIN` and `EXPLAIN ANALYZE` for every query against each selected scale's DuckDB database:
+
+```bash
+REFERENCE_SCALE_GB=10 python3 scripts/explain_duckdb_queries.py 0.1 0.2 0.5
+```
+
+If no factors are provided, the script uses `0.1 0.2 0.5`. It converts each factor to its physical scale using `REFERENCE_SCALE_GB`, selects the matching query from `queries/sf<scale>/` when available (otherwise using `queries/all_templates/`), and connects to `duckdb/tpcds_sf<scale>.duckdb`. Both plan modes run independently for each query. `EXPLAIN ANALYZE` executes the query, so it can take significant time; set `TIMEOUT_SECONDS=600` (or another positive number) to change the per-operation timeout. The script continues after an individual failure or timeout and reports it.
+
+Each run creates a timestamped directory under `results/explain_runs/` with `sf<scale>/query<number>.explain.txt` and `sf<scale>/query<number>.explain_analyze.txt` files. `explain_results.csv` records the status, elapsed time, source query, and output path for each operation.
+
+To combine the per-query outputs into two documents in each scale directory, pass the run directory to:
+
+```bash
+python3 scripts/combine_explain_outputs.py results/explain_runs/20261023_140001_315347
+```
+
+This creates `combined_explain.txt` and `combined_explain_analyze.txt` in each `sf<scale>/` directory. Query sections are sorted numerically and labeled with their original filenames. The script reports a warning if the run has different numbers of output files for the two modes.

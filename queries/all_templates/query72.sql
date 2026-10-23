@@ -23,7 +23,6 @@ where d1.d_week_seq = d2.d_week_seq
   and d1.d_year = 2001
   and cd_marital_status = 'M'
 group by i_item_desc,w_warehouse_name,d1.d_week_seq
-order by total_cnt desc, i_item_desc, w_warehouse_name, d_week_seq
+order by total_cnt desc, i_item_desc, w_warehouse_name, d1.d_week_seq
 limit 100;
-
 

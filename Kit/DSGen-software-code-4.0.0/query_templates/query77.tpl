@@ -45,20 +45,20 @@
       store
  where ss_sold_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date) 
-                  and (cast('[SALES_DATE]' as date) +  30 days) 
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
        and ss_store_sk = s_store_sk
  group by s_store_sk)
  ,
  sr as
  (select s_store_sk,
-         sum(sr_return_amt) as returns,
+         sum(sr_return_amt) as return_amt,
          sum(sr_net_loss) as profit_loss
  from store_returns,
       date_dim,
       store
  where sr_returned_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date)
-                  and (cast('[SALES_DATE]' as date) +  30 days)
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
        and sr_store_sk = s_store_sk
  group by s_store_sk), 
  cs as
@@ -69,18 +69,18 @@
       date_dim
  where cs_sold_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date)
-                  and (cast('[SALES_DATE]' as date) +  30 days)
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
  group by cs_call_center_sk 
  ), 
  cr as
  (select cr_call_center_sk,
-         sum(cr_return_amount) as returns,
+         sum(cr_return_amount) as return_amt,
          sum(cr_net_loss) as profit_loss
  from catalog_returns,
       date_dim
  where cr_returned_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date)
-                  and (cast('[SALES_DATE]' as date) +  30 days)
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
  group by cr_call_center_sk
  ), 
  ws as
@@ -92,31 +92,31 @@
       web_page
  where ws_sold_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date)
-                  and (cast('[SALES_DATE]' as date) +  30 days)
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
        and ws_web_page_sk = wp_web_page_sk
  group by wp_web_page_sk), 
  wr as
  (select wp_web_page_sk,
-        sum(wr_return_amt) as returns,
+        sum(wr_return_amt) as return_amt,
         sum(wr_net_loss) as profit_loss
  from web_returns,
       date_dim,
       web_page
  where wr_returned_date_sk = d_date_sk
        and d_date between cast('[SALES_DATE]' as date)
-                  and (cast('[SALES_DATE]' as date) +  30 days)
+                  and (cast('[SALES_DATE]' as date) + INTERVAL '30 days')
        and wr_web_page_sk = wp_web_page_sk
  group by wp_web_page_sk)
  [_LIMITA] select [_LIMITB] channel
         , id
         , sum(sales) as sales
-        , sum(returns) as returns
+        , sum(return_amt) as "returns"
         , sum(profit) as profit
  from 
  (select 'store channel' as channel
         , ss.s_store_sk as id
         , sales
-        , coalesce(returns, 0) as returns
+        , coalesce(return_amt, 0) as return_amt
         , (profit - coalesce(profit_loss,0)) as profit
  from   ss left join sr
         on  ss.s_store_sk = sr.s_store_sk
@@ -124,7 +124,7 @@
  select 'catalog channel' as channel
         , cs_call_center_sk as id
         , sales
-        , returns
+        , return_amt
         , (profit - profit_loss) as profit
  from  cs
        , cr
@@ -132,7 +132,7 @@
  select 'web channel' as channel
         , ws.wp_web_page_sk as id
         , sales
-        , coalesce(returns, 0) returns
+        , coalesce(return_amt, 0) as return_amt
         , (profit - coalesce(profit_loss,0)) as profit
  from   ws left join wr
         on  ws.wp_web_page_sk = wr.wp_web_page_sk
@@ -142,4 +142,3 @@
          ,id
  [_LIMITC];
  
-
