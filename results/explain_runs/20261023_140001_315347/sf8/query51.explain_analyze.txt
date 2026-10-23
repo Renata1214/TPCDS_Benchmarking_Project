@@ -1,0 +1,196 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE WITH web_v1 as ( select   ws_item_sk item_sk, d_date,   sum(sum(ws_sales_price))       over (partition by ws_item_sk order by d_date rows between unbounded preceding and current row) cume_sales from web_sales     ,date_dim where ws_sold_date_sk=d_date_sk   and d_month_seq between 1212 and 1212+11   and ws_item_sk is not NULL group by ws_item_sk, d_date), store_v1 as ( select   ss_item_sk item_sk, d_date,   sum(sum(ss_sales_price))       over (partition by ss_item_sk order by d_date rows between unbounded preceding and current row) cume_sales from store_sales     ,date_dim where ss_sold_date_sk=d_date_sk   and d_month_seq between 1212 and 1212+11   and ss_item_sk is not NULL group by ss_item_sk, d_date)  select  * from (select item_sk      ,d_date      ,web_sales      ,store_sales      ,max(web_sales)          over (partition by item_sk order by d_date rows between unbounded preceding and current row) web_cumulative      ,max(store_sales)          over (partition by item_sk order by d_date rows between unbounded preceding and current row) store_cumulative      from (select case when web.item_sk is not null then web.item_sk else store.item_sk end item_sk                  ,case when web.d_date is not null then web.d_date else store.d_date end d_date                  ,web.cume_sales web_sales                  ,store.cume_sales store_sales            from web_v1 web full outer join store_v1 store on (web.item_sk = store.item_sk                                                           and web.d_date = store.d_date)           )x )y where web_cumulative > store_cumulative order by item_sk         ,d_date limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││               Total Time: 3.46s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│       y.item_sk ASC       │
+│        y.d_date ASC       │
+│                           │
+│          100 rows         │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│     (web_cumulative >     │
+│      store_cumulative)    │
+│                           │
+│        111,646 rows       │
+│          (0.11s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│                           │
+│       4,418,396 rows      │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│    max(web_sales) OVER    │
+│   (PARTITION BY item_sk   │
+│  ORDER BY d_date ASC NULLS│
+│      LAST ROWS BETWEEN    │
+│   UNBOUNDED PRECEDING AND │
+│        CURRENT ROW)       │
+│   max(store_sales) OVER   │
+│   (PARTITION BY item_sk   │
+│  ORDER BY d_date ASC NULLS│
+│      LAST ROWS BETWEEN    │
+│   UNBOUNDED PRECEDING AND │
+│        CURRENT ROW)       │
+│                           │
+│       4,418,396 rows      │
+│          (7.61s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          item_sk          │
+│           d_date          │
+│         web_sales         │
+│        store_sales        │
+│                           │
+│       4,418,396 rows      │
+│          (0.04s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: FULL      │
+│                           │
+│        Conditions:        │
+│     item_sk = item_sk     ├───────────────────────────────────────────┐
+│      d_date = d_date      │                                           │
+│                           │                                           │
+│       4,418,396 rows      │                                           │
+│          (0.76s)          │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         PROJECTION        │                             │         PROJECTION        │
+│    ────────────────────   │                             │    ────────────────────   │
+│          item_sk          │                             │          item_sk          │
+│           d_date          │                             │           d_date          │
+│         cume_sales        │                             │         cume_sales        │
+│                           │                             │                           │
+│       3,654,753 rows      │                             │       1,095,083 rows      │
+│          (0.00s)          │                             │          (0.00s)          │
+└─────────────┬─────────────┘                             └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         PROJECTION        │                             │         PROJECTION        │
+│    ────────────────────   │                             │    ────────────────────   │
+│             #0            │                             │             #0            │
+│             #1            │                             │             #1            │
+│             #2            │                             │             #2            │
+│             #3            │                             │             #3            │
+│                           │                             │                           │
+│       3,654,753 rows      │                             │       1,095,083 rows      │
+│          (0.00s)          │                             │          (0.00s)          │
+└─────────────┬─────────────┘                             └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│           WINDOW          │                             │           WINDOW          │
+│    ────────────────────   │                             │    ────────────────────   │
+│        Projections:       │                             │        Projections:       │
+│  sum(sum(ss_sales_price)) │                             │  sum(sum(ws_sales_price)) │
+│     OVER (PARTITION BY    │                             │     OVER (PARTITION BY    │
+│     ss_item_sk ORDER BY   │                             │     ws_item_sk ORDER BY   │
+│    d_date ASC NULLS LAST  │                             │    d_date ASC NULLS LAST  │
+│   ROWS BETWEEN UNBOUNDED  │                             │   ROWS BETWEEN UNBOUNDED  │
+│ PRECEDING AND CURRENT ROW)│                             │ PRECEDING AND CURRENT ROW)│
+│                           │                             │                           │
+│       3,654,753 rows      │                             │       1,095,083 rows      │
+│          (5.51s)          │                             │          (1.15s)          │
+└─────────────┬─────────────┘                             └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │                             │       HASH_GROUP_BY       │
+│    ────────────────────   │                             │    ────────────────────   │
+│          Groups:          │                             │          Groups:          │
+│             #0            │                             │             #0            │
+│             #1            │                             │             #1            │
+│                           │                             │                           │
+│    Aggregates: sum(#2)    │                             │    Aggregates: sum(#2)    │
+│                           │                             │                           │
+│       3,654,753 rows      │                             │       1,095,083 rows      │
+│          (2.48s)          │                             │          (0.54s)          │
+└─────────────┬─────────────┘                             └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         PROJECTION        │                             │         PROJECTION        │
+│    ────────────────────   │                             │    ────────────────────   │
+│         ss_item_sk        │                             │         ws_item_sk        │
+│           d_date          │                             │           d_date          │
+│       ss_sales_price      │                             │       ws_sales_price      │
+│                           │                             │                           │
+│       4,371,286 rows      │                             │       1,148,450 rows      │
+│          (0.01s)          │                             │          (0.00s)          │
+└─────────────┬─────────────┘                             └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         HASH_JOIN         │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │      Join Type: INNER     │
+│                           │                             │                           │
+│        Conditions:        ├──────────────┐              │        Conditions:        ├──────────────┐
+│ss_sold_date_sk = d_date_sk│              │              │ws_sold_date_sk = d_date_sk│              │
+│                           │              │              │                           │              │
+│       4,371,286 rows      │              │              │       1,148,450 rows      │              │
+│          (0.10s)          │              │              │          (0.02s)          │              │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││           FILTER          ││         TABLE_SCAN        ││           FILTER          │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││ (d_date_sk BETWEEN 2450816││      Table: web_sales     ││ (d_date_sk BETWEEN 2450816│
+│   Type: Sequential Scan   ││        AND 2452642)       ││   Type: Sequential Scan   ││        AND 2452642)       │
+│                           ││                           ││                           ││                           │
+│        Projections:       ││                           ││        Projections:       ││                           │
+│      ss_sold_date_sk      ││                           ││      ws_sold_date_sk      ││                           │
+│         ss_item_sk        ││                           ││         ws_item_sk        ││                           │
+│       ss_sales_price      ││                           ││       ws_sales_price      ││                           │
+│                           ││                           ││                           ││                           │
+│       4,371,286 rows      ││          365 rows         ││       1,148,450 rows      ││          365 rows         │
+│          (12.04s)         ││          (0.00s)          ││          (2.71s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        │                             │         TABLE_SCAN        │
+                             │    ────────────────────   │                             │    ────────────────────   │
+                             │      Table: date_dim      │                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │                             │   Type: Sequential Scan   │
+                             │                           │                             │                           │
+                             │        Projections:       │                             │        Projections:       │
+                             │         d_date_sk         │                             │         d_date_sk         │
+                             │           d_date          │                             │           d_date          │
+                             │                           │                             │                           │
+                             │          Filters:         │                             │          Filters:         │
+                             │   d_month_seq>=1212 AND   │                             │   d_month_seq>=1212 AND   │
+                             │      d_month_seq<=1223    │                             │      d_month_seq<=1223    │
+                             │                           │                             │                           │
+                             │          365 rows         │                             │          365 rows         │
+                             │          (0.01s)          │                             │          (0.01s)          │
+                             └───────────────────────────┘                             └───────────────────────────┘

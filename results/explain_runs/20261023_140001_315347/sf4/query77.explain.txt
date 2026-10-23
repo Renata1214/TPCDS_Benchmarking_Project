@@ -1,0 +1,227 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌─────────────┐
+│    TOP_N    │
+│    ──────   │
+│     Top:    │
+│     100     │
+│             │
+│  Order By:  │
+│x.channel ASC│
+│   x.id ASC  │
+└──────┬──────┘
+┌──────┴──────┐
+│HASH_GROUP_BY│
+│    ──────   │
+│   Groups:   │
+│      #0     │
+│      #1     │
+│             │
+│ Aggregates: │
+│   sum(#2)   │
+│   sum(#3)   │
+│   sum(#4)   │
+│             │
+│ ~1,725 rows │
+└──────┬──────┘
+┌──────┴──────┐
+│  PROJECTION │
+│    ──────   │
+│   channel   │
+│      id     │
+│    sales    │
+│  return_amt │
+│    profit   │
+│             │
+│ ~4,614 rows │
+└──────┬──────┘
+┌──────┴──────┐
+│    UNION    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+└──────┬──────┘                                                                                                                                              │
+┌──────┴──────┐                                                                                                                                       ┌──────┴──────┐
+│    UNION    │                                                                                                                                       │  PROJECTION │
+│             │                                                                                                                                       │    ──────   │
+│             │                                                                                                                                       │   channel   │
+│             │                                                                                                                                       │      id     │
+│             ├──────────────────────────────────────────────────────────────────────────────────┐                                                    │    sales    │
+│             │                                                                                  │                                                    │  return_amt │
+│             │                                                                                  │                                                    │    profit   │
+│             │                                                                                  │                                                    │             │
+│             │                                                                                  │                                                    │ ~2,243 rows │
+└──────┬──────┘                                                                                  │                                                    └──────┬──────┘
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                             ┌──────┴──────┐
+│  PROJECTION │                                                                           │  PROJECTION │                                             │  HASH_JOIN  │
+│    ──────   │                                                                           │    ──────   │                                             │    ──────   │
+│   channel   │                                                                           │   channel   │                                             │  Join Type: │
+│      id     │                                                                           │      id     │                                             │    RIGHT    │
+│    sales    │                                                                           │    sales    │                                             │             │
+│  return_amt │                                                                           │  return_amt │                                             │ Conditions: ├─────────────────────────────────────┐
+│    profit   │                                                                           │    profit   │                                             │wp_web_page_s│                                     │
+│             │                                                                           │             │                                             │k = wp_web_pa│                                     │
+│             │                                                                           │             │                                             │    ge_sk    │                                     │
+│             │                                                                           │             │                                             │             │                                     │
+│ ~2,202 rows │                                                                           │  ~169 rows  │                                             │ ~2,243 rows │                                     │
+└──────┬──────┘                                                                           └──────┬──────┘                                             └──────┬──────┘                                     │
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                             ┌──────┴──────┐                              ┌──────┴──────┐
+│  HASH_JOIN  │                                                                           │CROSS_PRODUCT│                                             │  PROJECTION │                              │  PROJECTION │
+│    ──────   │                                                                           │             │                                             │    ──────   │                              │    ──────   │
+│  Join Type: │                                                                           │             │                                             │__internal_de│                              │__internal_de│
+│    RIGHT    │                                                                           │             │                                             │compress_inte│                              │compress_inte│
+│             │                                                                           │             │                                             │ gral_integer│                              │ gral_integer│
+│ Conditions: ├─────────────────────────────────────┐                                     │             ├──────────────────────┐                      │   (#0, 1)   │                              │   (#0, 1)   │
+│ s_store_sk =│                                     │                                     │             │                      │                      │      #1     │                              │      #1     │
+│  s_store_sk │                                     │                                     │             │                      │                      │      #2     │                              │      #2     │
+│             │                                     │                                     │             │                      │                      │             │                              │             │
+│ ~2,202 rows │                                     │                                     │             │                      │                      │ ~2,243 rows │                              │ ~1,990 rows │
+└──────┬──────┘                                     │                                     └──────┬──────┘                      │                      └──────┬──────┘                              └──────┬──────┘
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│  PROJECTION │                              │  PROJECTION │                              │  PROJECTION │               │  PROJECTION │               │PERFECT_...  │                              │PERFECT_...  │
+│    ──────   │                              │    ──────   │                              │    ──────   │               │    ──────   │               │    ──────   │                              │    ──────   │
+│__internal_de│                              │__internal_de│                              │__internal_de│               │  return_amt │               │   Groups:   │                              │   Groups:   │
+│compress_inte│                              │compress_inte│                              │compress_inte│               │ profit_loss │               │      #0     │                              │      #0     │
+│ gral_integer│                              │ gral_integer│                              │ gral_integer│               │             │               │             │                              │             │
+│   (#0, 1)   │                              │   (#0, 1)   │                              │   (#0, 1)   │               │             │               │ Aggregates: │                              │ Aggregates: │
+│      #1     │                              │      #1     │                              │      #1     │               │             │               │   sum(#1)   │                              │   sum(#1)   │
+│      #2     │                              │      #2     │                              │      #2     │               │             │               │   sum(#2)   │                              │   sum(#2)   │
+│             │                              │             │                              │             │               │             │               │             │                              │             │
+│ ~2,202 rows │                              │ ~1,990 rows │                              │   ~13 rows  │               │   ~13 rows  │               │             │                              │             │
+└──────┬──────┘                              └──────┬──────┘                              └──────┬──────┘               └──────┬──────┘               └──────┬──────┘                              └──────┬──────┘
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│PERFECT_...  │                              │PERFECT_...  │                              │PERFECT_...  │               │  PROJECTION │               │  PROJECTION │                              │  PROJECTION │
+│    ──────   │                              │    ──────   │                              │    ──────   │               │    ──────   │               │    ──────   │                              │    ──────   │
+│   Groups:   │                              │   Groups:   │                              │   Groups:   │               │__internal_de│               │wp_web_page_s│                              │wp_web_page_s│
+│      #0     │                              │      #0     │                              │      #0     │               │compress_inte│               │      k      │                              │      k      │
+│             │                              │             │                              │             │               │ gral_integer│               │wr_return_amt│                              │ws_ext_sales_│
+│ Aggregates: │                              │ Aggregates: │                              │ Aggregates: │               │   (#0, 1)   │               │ wr_net_loss │                              │    price    │
+│   sum(#1)   │                              │   sum(#1)   │                              │   sum(#1)   │               │      #1     │               │             │                              │ws_net_profit│
+│   sum(#2)   │                              │   sum(#2)   │                              │   sum(#2)   │               │      #2     │               │             │                              │             │
+│             │                              │             │                              │             │               │             │               │             │                              │             │
+│             │                              │             │                              │             │               │   ~13 rows  │               │ ~79,911 rows│                              │~800,007 rows│
+└──────┬──────┘                              └──────┬──────┘                              └──────┬──────┘               └──────┬──────┘               └──────┬──────┘                              └──────┬──────┘
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│  PROJECTION │                              │  PROJECTION │                              │  PROJECTION │               │PERFECT_...  │               │  PROJECTION │                              │  PROJECTION │
+│    ──────   │                              │    ──────   │                              │    ──────   │               │    ──────   │               │    ──────   │                              │    ──────   │
+│  s_store_sk │                              │  s_store_sk │                              │cs_call_cente│               │   Groups:   │               │__internal_co│                              │__internal_co│
+│sr_return_amt│                              │ss_ext_sales_│                              │     r_sk    │               │      #0     │               │mpress_integr│                              │mpress_integr│
+│ sr_net_loss │                              │    price    │                              │cs_ext_sales_│               │             │               │ al_utinyint(│                              │ al_utinyint(│
+│             │                              │ss_net_profit│                              │    price    │               │ Aggregates: │               │    #0, 1)   │                              │    #0, 1)   │
+│             │                              │             │                              │cs_net_profit│               │   sum(#1)   │               │      #1     │                              │      #1     │
+│             │                              │             │                              │             │               │   sum(#2)   │               │      #2     │                              │      #2     │
+│             │                              │             │                              │             │               │             │               │__internal_co│                              │__internal_co│
+│             │                              │             │                              │             │               │             │               │mpress_integr│                              │mpress_integr│
+│             │                              │             │                              │             │               │             │               │ al_utinyint(│                              │ al_utinyint(│
+│             │                              │             │                              │             │               │             │               │    #3, 1)   │                              │    #3, 1)   │
+│             │                              │             │                              │             │               │             │               │             │                              │             │
+│~316,384 rows│                              │~3,170,2...  │                              │~1,585,2...  │               │             │               │ ~79,911 rows│                              │~800,007 rows│
+└──────┬──────┘                              └──────┬──────┘                              └──────┬──────┘               └──────┬──────┘               └──────┬──────┘                              └──────┬──────┘
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│  PROJECTION │                              │  PROJECTION │                              │  PROJECTION │               │  PROJECTION │               │  HASH_JOIN  │                              │  HASH_JOIN  │
+│    ──────   │                              │    ──────   │                              │    ──────   │               │    ──────   │               │    ──────   │                              │    ──────   │
+│__internal_co│                              │__internal_co│                              │__internal_co│               │cr_call_cente│               │  Join Type: │                              │  Join Type: │
+│mpress_integr│                              │mpress_integr│                              │mpress_integr│               │     r_sk    │               │    INNER    │                              │    INNER    │
+│ al_utinyint(│                              │ al_utinyint(│                              │ al_utinyint(│               │cr_return_amo│               │             │                              │             │
+│    #0, 1)   │                              │    #0, 1)   │                              │    #0, 1)   │               │     unt     │               │ Conditions: │                              │ Conditions: │
+│      #1     │                              │      #1     │                              │      #1     │               │ cr_net_loss │               │wr_web_page_s│                              │ws_web_page_s│
+│      #2     │                              │      #2     │                              │      #2     │               │             │               │k = wp_web_pa├──────────────────────┐       │k = wp_web_pa├──────────────────────┐
+│__internal_co│                              │__internal_co│                              │__internal_co│               │             │               │    ge_sk    │                      │       │    ge_sk    │                      │
+│mpress_integr│                              │mpress_integr│                              │mpress_integr│               │             │               │             │                      │       │             │                      │
+│ al_utinyint(│                              │ al_utinyint(│                              │ al_usmallint│               │             │               │             │                      │       │             │                      │
+│    #3, 1)   │                              │    #3, 1)   │                              │(#3, 2450815)│               │             │               │             │                      │       │             │                      │
+│             │                              │             │                              │             │               │             │               │             │                      │       │             │                      │
+│~316,384 rows│                              │~3,170,2...  │                              │~1,585,2...  │               │~158,597 rows│               │ ~79,911 rows│                      │       │~800,007 rows│                      │
+└──────┬──────┘                              └──────┬──────┘                              └──────┬──────┘               └──────┬──────┘               └──────┬──────┘                      │       └──────┬──────┘                      │
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐
+│  HASH_JOIN  │                              │  HASH_JOIN  │                              │  HASH_JOIN  │               │  PROJECTION │               │  HASH_JOIN  │               │  SEQ_SCAN   ││  HASH_JOIN  │               │  SEQ_SCAN   │
+│    ──────   │                              │    ──────   │                              │    ──────   │               │    ──────   │               │    ──────   │               │    ──────   ││    ──────   │               │    ──────   │
+│  Join Type: │                              │  Join Type: │                              │  Join Type: │               │__internal_co│               │  Join Type: │               │    Table:   ││  Join Type: │               │    Table:   │
+│    INNER    │                              │    INNER    │                              │    INNER    │               │mpress_integr│               │    INNER    │               │   web_page  ││    INNER    │               │   web_page  │
+│             │                              │             │                              │             │               │ al_utinyint(│               │             │               │             ││             │               │             │
+│ Conditions: │                              │ Conditions: │                              │ Conditions: │               │    #0, 1)   │               │ Conditions: │               │    Type:    ││ Conditions: │               │    Type:    │
+│ sr_store_sk │                              │ ss_store_sk │                              │cs_sold_date_│               │      #1     │               │wr_returned_d│               │  Sequential ││ws_sold_date_│               │  Sequential │
+│ = s_store_sk├──────────────────────┐       │ = s_store_sk├──────────────────────┐       │sk = d_date_s├───────┐       │      #2     │               │   ate_sk =  ├───────┐       │     Scan    ││sk = d_date_s├───────┐       │     Scan    │
+│             │                      │       │             │                      │       │      k      │       │       │__internal_co│               │   d_date_sk │       │       │             ││      k      │       │       │             │
+│             │                      │       │             │                      │       │             │       │       │mpress_integr│               │             │       │       │ Projections:││             │       │       │ Projections:│
+│             │                      │       │             │                      │       │             │       │       │ al_usmallint│               │             │       │       │wp_web_page_s││             │       │       │wp_web_page_s│
+│             │                      │       │             │                      │       │             │       │       │(#3, 2450821)│               │             │       │       │      k      ││             │       │       │      k      │
+│             │                      │       │             │                      │       │             │       │       │             │               │             │       │       │             ││             │       │       │             │
+│~316,384 rows│                      │       │~3,170,2...  │                      │       │~1,585,2...  │       │       │~158,597 rows│               │ ~79,157 rows│       │       │  ~106 rows  ││~792,460 rows│       │       │  ~106 rows  │
+└──────┬──────┘                      │       └──────┬──────┘                      │       └──────┬──────┘       │       └──────┬──────┘               └──────┬──────┘       │       └─────────────┘└──────┬──────┘       │       └─────────────┘
+┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐
+│  HASH_JOIN  │               │  SEQ_SCAN   ││  HASH_JOIN  │               │  SEQ_SCAN   ││  SEQ_SCAN   ││    FILTER   ││  HASH_JOIN  │               │  SEQ_SCAN   ││    FILTER   │               │  SEQ_SCAN   ││    FILTER   │
+│    ──────   │               │    ──────   ││    ──────   │               │    ──────   ││    ──────   ││    ──────   ││    ──────   │               │    ──────   ││    ──────   │               │    ──────   ││    ──────   │
+│  Join Type: │               │    Table:   ││  Join Type: │               │    Table:   ││    Table:   ││  (d_date_sk ││  Join Type: │               │    Table:   ││  (d_date_sk │               │    Table:   ││  (d_date_sk │
+│    INNER    │               │    store    ││    INNER    │               │    store    ││catalog_sales││    BETWEEN  ││    INNER    │               │ web_returns ││    BETWEEN  │               │  web_sales  ││    BETWEEN  │
+│             │               │             ││             │               │             ││             ││  2450815 AND││             │               │             ││  2450832 AND│               │             ││  2450816 AND│
+│ Conditions: │               │    Type:    ││ Conditions: │               │    Type:    ││    Type:    ││   2452653)  ││ Conditions: │               │    Type:    ││   2452995)  │               │    Type:    ││   2452642)  │
+│sr_returned_d│               │  Sequential ││ss_sold_date_│               │  Sequential ││  Sequential ││             ││cr_returned_d│               │  Sequential ││             │               │  Sequential ││             │
+│   ate_sk =  │               │     Scan    ││sk = d_date_s│               │     Scan    ││     Scan    ││             ││   ate_sk =  │               │     Scan    ││             │               │     Scan    ││             │
+│   d_date_sk │               │             ││      k      │               │             ││             ││             ││   d_date_sk │               │             ││             │               │             ││             │
+│             ├───────┐       │ Projections:││             ├───────┐       │ Projections:││ Projections:││             ││             ├───────┐       │ Projections:││             │               │ Projections:││             │
+│             │       │       │  s_store_sk ││             │       │       │  s_store_sk ││cs_sold_date_││             ││             │       │       │wr_returned_d││             │               │ws_sold_date_││             │
+│             │       │       │             ││             │       │       │             ││      sk     ││             ││             │       │       │    ate_sk   ││             │               │      sk     ││             │
+│             │       │       │   Filters:  ││             │       │       │   Filters:  ││cs_call_cente││             ││             │       │       │wr_web_page_s││             │               │ws_web_page_s││             │
+│             │       │       │ s_store_sk< ││             │       │       │ s_store_sk< ││     r_sk    ││             ││             │       │       │      k      ││             │               │      k      ││             │
+│             │       │       │     =40     ││             │       │       │     =40     ││cs_ext_sales_││             ││             │       │       │wr_return_amt││             │               │ws_ext_sales_││             │
+│             │       │       │             ││             │       │       │             ││    price    ││             ││             │       │       │ wr_net_loss ││             │               │    price    ││             │
+│             │       │       │             ││             │       │       │             ││cs_net_profit││             ││             │       │       │             ││             │               │ws_net_profit││             │
+│             │       │       │             ││             │       │       │             ││             ││             ││             │       │       │             ││             │               │             ││             │
+│~316,384 rows│       │       │   ~42 rows  ││~3,170,2...  │       │       │   ~42 rows  ││~5,759,9...  ││ ~14,609 rows││~158,597 rows│       │       │~287,614 rows││ ~14,609 rows│               │~2,879,3...  ││ ~14,609 rows│
+└──────┬──────┘       │       └─────────────┘└──────┬──────┘       │       └─────────────┘└─────────────┘└──────┬──────┘└──────┬──────┘       │       └─────────────┘└──────┬──────┘               └─────────────┘└──────┬──────┘
+┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│  SEQ_SCAN   ││    FILTER   │               │  SEQ_SCAN   ││    FILTER   │                              │  SEQ_SCAN   ││  SEQ_SCAN   ││    FILTER   │               │  SEQ_SCAN   │                              │  SEQ_SCAN   │
+│    ──────   ││    ──────   │               │    ──────   ││    ──────   │                              │    ──────   ││    ──────   ││    ──────   │               │    ──────   │                              │    ──────   │
+│    Table:   ││  (d_date_sk │               │    Table:   ││  (d_date_sk │                              │    Table:   ││    Table:   ││  (d_date_sk │               │    Table:   │                              │    Table:   │
+│store_returns││    BETWEEN  │               │ store_sales ││    BETWEEN  │                              │   date_dim  ││catalog_retur││    BETWEEN  │               │   date_dim  │                              │   date_dim  │
+│             ││  2450820 AND│               │             ││  2450816 AND│                              │             ││      ns     ││  2450821 AND│               │             │                              │             │
+│    Type:    ││   2452822)  │               │    Type:    ││   2452642)  │                              │    Type:    ││             ││   2452920)  │               │    Type:    │                              │    Type:    │
+│  Sequential ││             │               │  Sequential ││             │                              │  Sequential ││    Type:    ││             │               │  Sequential │                              │  Sequential │
+│     Scan    ││             │               │     Scan    ││             │                              │     Scan    ││  Sequential ││             │               │     Scan    │                              │     Scan    │
+│             ││             │               │             ││             │                              │             ││     Scan    ││             │               │             │                              │             │
+│ Projections:││             │               │ Projections:││             │                              │ Projections:││             ││             │               │ Projections:│                              │ Projections:│
+│sr_returned_d││             │               │ss_sold_date_││             │                              │  d_date_sk  ││ Projections:││             │               │  d_date_sk  │                              │  d_date_sk  │
+│    ate_sk   ││             │               │      sk     ││             │                              │             ││cr_returned_d││             │               │             │                              │             │
+│ sr_store_sk ││             │               │ ss_store_sk ││             │                              │   Filters:  ││    ate_sk   ││             │               │   Filters:  │                              │   Filters:  │
+│sr_return_amt││             │               │ss_ext_sales_││             │                              │ (CAST(d_date││cr_call_cente││             │               │ (CAST(d_date│                              │ (CAST(d_date│
+│ sr_net_loss ││             │               │    price    ││             │                              │ AS TIMESTAMP││     r_sk    ││             │               │ AS TIMESTAMP│                              │ AS TIMESTAMP│
+│             ││             │               │ss_net_profit││             │                              │  ) BETWEEN  ││cr_return_amo││             │               │  ) BETWEEN  │                              │  ) BETWEEN  │
+│             ││             │               │             ││             │                              │ '1998-08-04 ││     unt     ││             │               │ '1998-08-04 │                              │ '1998-08-04 │
+│             ││             │               │             ││             │                              │  00:00:00': ││ cr_net_loss ││             │               │  00:00:00': │                              │  00:00:00': │
+│             ││             │               │             ││             │                              │  :TIMESTAMP ││             ││             │               │  :TIMESTAMP │                              │  :TIMESTAMP │
+│             ││             │               │             ││             │                              │   AND '1998 ││             ││             │               │   AND '1998 │                              │   AND '1998 │
+│             ││             │               │             ││             │                              │ -09-03 00:00││             ││             │               │ -09-03 00:00│                              │ -09-03 00:00│
+│             ││             │               │             ││             │                              │:00'::TIMESTA││             ││             │               │:00'::TIMESTA│                              │:00'::TIMESTA│
+│             ││             │               │             ││             │                              │     MP)     ││             ││             │               │     MP)     │                              │     MP)     │
+│             ││             │               │             ││             │                              │             ││             ││             │               │             │                              │             │
+│~1,149,5...  ││ ~14,609 rows│               │~11,519,...  ││ ~14,609 rows│                              │ ~14,609 rows││~576,254 rows││ ~14,609 rows│               │ ~14,609 rows│                              │ ~14,609 rows│
+└─────────────┘└──────┬──────┘               └─────────────┘└──────┬──────┘                              └─────────────┘└─────────────┘└──────┬──────┘               └─────────────┘                              └─────────────┘
+               ┌──────┴──────┐                              ┌──────┴──────┐                                                            ┌──────┴──────┐
+               │  SEQ_SCAN   │                              │  SEQ_SCAN   │                                                            │  SEQ_SCAN   │
+               │    ──────   │                              │    ──────   │                                                            │    ──────   │
+               │    Table:   │                              │    Table:   │                                                            │    Table:   │
+               │   date_dim  │                              │   date_dim  │                                                            │   date_dim  │
+               │             │                              │             │                                                            │             │
+               │    Type:    │                              │    Type:    │                                                            │    Type:    │
+               │  Sequential │                              │  Sequential │                                                            │  Sequential │
+               │     Scan    │                              │     Scan    │                                                            │     Scan    │
+               │             │                              │             │                                                            │             │
+               │ Projections:│                              │ Projections:│                                                            │ Projections:│
+               │  d_date_sk  │                              │  d_date_sk  │                                                            │  d_date_sk  │
+               │             │                              │             │                                                            │             │
+               │   Filters:  │                              │   Filters:  │                                                            │   Filters:  │
+               │ (CAST(d_date│                              │ (CAST(d_date│                                                            │ (CAST(d_date│
+               │ AS TIMESTAMP│                              │ AS TIMESTAMP│                                                            │ AS TIMESTAMP│
+               │  ) BETWEEN  │                              │  ) BETWEEN  │                                                            │  ) BETWEEN  │
+               │ '1998-08-04 │                              │ '1998-08-04 │                                                            │ '1998-08-04 │
+               │  00:00:00': │                              │  00:00:00': │                                                            │  00:00:00': │
+               │  :TIMESTAMP │                              │  :TIMESTAMP │                                                            │  :TIMESTAMP │
+               │   AND '1998 │                              │   AND '1998 │                                                            │   AND '1998 │
+               │ -09-03 00:00│                              │ -09-03 00:00│                                                            │ -09-03 00:00│
+               │:00'::TIMESTA│                              │:00'::TIMESTA│                                                            │:00'::TIMESTA│
+               │     MP)     │                              │     MP)     │                                                            │     MP)     │
+               │             │                              │             │                                                            │             │
+               │ ~14,609 rows│                              │ ~14,609 rows│                                                            │ ~14,609 rows│
+               └─────────────┘                              └─────────────┘                                                            └─────────────┘

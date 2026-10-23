@@ -1,0 +1,142 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  tpcds_sf1.main.warehouse │
+│        .w_state ASC       │
+│    tpcds_sf1.main.item    │
+│       .i_item_id ASC      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_strin│
+│           g(#0)           │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│        ~49,726 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│        Aggregates:        │
+│          sum(#2)          │
+│          sum(#3)          │
+│                           │
+│        ~49,726 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          w_state          │
+│         i_item_id         │
+│   CASE  WHEN ((d_date <   │
+│ '1998-04-08'::DATE)) THEN │
+│  ((CAST(cs_sales_price AS │
+│  DECIMAL(13,2)) - COALESCE│
+│ (CAST(cr_refunded_cash AS │
+│   DECIMAL(12,2)), 0.00))) │
+│        ELSE 0.00 END      │
+│  CASE  WHEN ((d_date >=   │
+│ '1998-04-08'::DATE)) THEN │
+│  ((CAST(cs_sales_price AS │
+│  DECIMAL(13,2)) - COALESCE│
+│ (CAST(cr_refunded_cash AS │
+│   DECIMAL(12,2)), 0.00))) │
+│        ELSE 0.00 END      │
+│                           │
+│        ~84,413 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│__internal_compress_string_│
+│        uinteger(#4)       │
+│                           │
+│        ~84,413 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│     cs_warehouse_sk =     │                                                                                                     │
+│       w_warehouse_sk      │                                                                                                     │
+│                           │                                                                                                     │
+│        ~84,413 rows       │                                                                                                     │
+└─────────────┬─────────────┘                                                                                                     │
+┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                       │         SEQ_SCAN          │
+│    ────────────────────   │                                                                                       │    ────────────────────   │
+│      Join Type: INNER     │                                                                                       │      Table: warehouse     │
+│                           │                                                                                       │   Type: Sequential Scan   │
+│        Conditions:        │                                                                                       │                           │
+│cs_sold_date_sk = d_date_sk├────────────────────────────────────────────────────────────────────────┐              │        Projections:       │
+│                           │                                                                        │              │       w_warehouse_sk      │
+│                           │                                                                        │              │          w_state          │
+│                           │                                                                        │              │                           │
+│        ~84,413 rows       │                                                                        │              │          ~5 rows          │
+└─────────────┬─────────────┘                                                                        │              └───────────────────────────┘
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │           FILTER          │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │ (d_date_sk BETWEEN 2450815│
+│                           │                                                          │        AND 2452648)       │
+│        Conditions:        ├───────────────────────────────────────────┐              │                           │
+│   cs_item_sk = i_item_sk  │                                           │              │                           │
+│                           │                                           │              │                           │
+│       ~306,712 rows       │                                           │              │        ~14,609 rows       │
+└─────────────┬─────────────┘                                           │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         SEQ_SCAN          ││         SEQ_SCAN          │
+│    ────────────────────   │                             │    ────────────────────   ││    ────────────────────   │
+│      Join Type: LEFT      │                             │        Table: item        ││      Table: date_dim      │
+│                           │                             │   Type: Sequential Scan   ││   Type: Sequential Scan   │
+│        Conditions:        │                             │                           ││                           │
+│     cs_order_number =     │                             │        Projections:       ││        Projections:       │
+│       cr_order_number     │                             │         i_item_sk         ││         d_date_sk         │
+│  cs_item_sk = cr_item_sk  │                             │         i_item_id         ││           d_date          │
+│                           ├──────────────┐              │                           ││                           │
+│                           │              │              │          Filters:         ││          Filters:         │
+│                           │              │              │ i_current_price>=0.99 AND ││ (CAST(d_date AS TIMESTAMP)│
+│                           │              │              │    i_current_price<=1.49  ││  BETWEEN '1998-03-09 00:00│
+│                           │              │              │                           ││ :00'::TIMESTAMP AND '1998 │
+│                           │              │              │                           ││     -05-08 00:00:00':     │
+│                           │              │              │                           ││        :TIMESTAMP)        │
+│                           │              │              │                           ││                           │
+│      ~1,441,548 rows      │              │              │        ~3,600 rows        ││        ~14,609 rows       │
+└─────────────┬─────────────┘              │              └───────────────────────────┘└───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   │
+│    Table: catalog_sales   ││           Table:          │
+│   Type: Sequential Scan   ││      catalog_returns      │
+│                           ││                           │
+│        Projections:       ││   Type: Sequential Scan   │
+│      cs_order_number      ││                           │
+│         cs_item_sk        ││        Projections:       │
+│      cs_warehouse_sk      ││      cr_order_number      │
+│      cs_sold_date_sk      ││         cr_item_sk        │
+│       cs_sales_price      ││      cr_refunded_cash     │
+│                           ││                           │
+│      ~1,441,548 rows      ││       ~144,067 rows       │
+└───────────────────────────┘└───────────────────────────┘

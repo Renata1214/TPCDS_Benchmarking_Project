@@ -1,0 +1,134 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────┐
+│         TOP_N         │
+│    ────────────────   │
+│        Top: 100       │
+│                       │
+│       Order By:       │
+│   count(DISTINCT ws1  │
+│ .ws_order_number) ASC │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│  UNGROUPED_AGGREGATE  │
+│    ────────────────   │
+│      Aggregates:      │
+│   count(DISTINCT #0)  │
+│        sum(#1)        │
+│        sum(#2)        │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│       PROJECTION      │
+│    ────────────────   │
+│    ws_order_number    │
+│    ws_ext_ship_cost   │
+│     ws_net_profit     │
+│                       │
+│       ~151 rows       │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│       HASH_JOIN       │
+│    ────────────────   │
+│    Join Type: INNER   │
+│                       │
+│      Conditions:      ├────────────┐
+│      d_date_sk =      │            │
+│     ws_ship_date_sk   │            │
+│                       │            │
+│       ~151 rows       │            │
+└───────────┬───────────┘            │
+┌───────────┴───────────┐┌───────────┴───────────┐
+│         FILTER        ││       HASH_JOIN       │
+│    ────────────────   ││    ────────────────   │
+│   (d_date_sk BETWEEN  ││       Join Type:      │
+│  2450817 AND 2452762) ││       RIGHT_SEMI      │
+│                       ││                       ├──────────────────────────────────────────────────────────────┐
+│                       ││      Conditions:      │                                                              │
+│                       ││  #0 = ws_order_number │                                                              │
+│                       ││                       │                                                              │
+│      ~14,609 rows     ││       ~549 rows       │                                                              │
+└───────────┬───────────┘└───────────┬───────────┘                                                              │
+┌───────────┴───────────┐┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       SEQ_SCAN        ││       PROJECTION      │                                                  │       HASH_JOIN       │
+│    ────────────────   ││    ────────────────   │                                                  │    ────────────────   │
+│    Table: date_dim    ││    wr_order_number    │                                                  │       Join Type:      │
+│                       ││                       │                                                  │       RIGHT_SEMI      │
+│         Type:         ││                       │                                                  │                       │
+│    Sequential Scan    ││                       │                                                  │      Conditions:      │
+│                       ││                       │                                                  │  #0 = ws_order_number │
+│      Projections:     ││                       │                                                  │                       │
+│       d_date_sk       ││                       │                                                  │                       │
+│                       ││                       │                                                  │                       ├─────────────────────────────────────┐
+│        Filters:       ││                       │                                                  │                       │                                     │
+│    (CAST(d_date AS    ││                       │                                                  │                       │                                     │
+│   TIMESTAMP) BETWEEN  ││                       │                                                  │                       │                                     │
+│ '1999-05-01 00:00:00':││                       │                                                  │                       │                                     │
+│  :TIMESTAMP AND '1999 ││                       │                                                  │                       │                                     │
+│   -06-30 00:00:00':   ││                       │                                                  │                       │                                     │
+│      :TIMESTAMP)      ││                       │                                                  │                       │                                     │
+│                       ││                       │                                                  │                       │                                     │
+│      ~14,609 rows     ││   ~220,240,416 rows   │                                                  │      ~2,745 rows      │                                     │
+└───────────────────────┘└───────────┬───────────┘                                                  └───────────┬───────────┘                                     │
+                         ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                         ┌───────────┴───────────┐
+                         │       HASH_JOIN       │                                                  │       PROJECTION      │                         │       HASH_JOIN       │
+                         │    ────────────────   │                                                  │    ────────────────   │                         │    ────────────────   │
+                         │    Join Type: INNER   │                                                  │    ws_order_number    │                         │    Join Type: INNER   │
+                         │                       │                                                  │                       │                         │                       │
+                         │      Conditions:      ├─────────────────────────────────────┐            │                       │                         │      Conditions:      ├─────────────────────────────────────┐
+                         │   ws_order_number =   │                                     │            │                       │                         │    ws_web_site_sk =   │                                     │
+                         │     wr_order_number   │                                     │            │                       │                         │       web_site_sk     │                                     │
+                         │                       │                                     │            │                       │                         │                       │                                     │
+                         │   ~220,240,416 rows   │                                     │            │    ~57,645,659 rows   │                         │      ~13,725 rows     │                                     │
+                         └───────────┬───────────┘                                     │            └───────────┬───────────┘                         └───────────┬───────────┘                                     │
+                         ┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐                         ┌───────────┴───────────┐
+                         │       PROJECTION      │                         │       SEQ_SCAN        ││       HASH_JOIN       │                         │       HASH_JOIN       │                         │       SEQ_SCAN        │
+                         │    ────────────────   │                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   │                         │    ────────────────   │
+                         │    ws_order_number    │                         │         Table:        ││    Join Type: INNER   │                         │    Join Type: INNER   │                         │    Table: web_site    │
+                         │                       │                         │      web_returns      ││                       │                         │                       │                         │                       │
+                         │                       │                         │                       ││      Conditions:      │                         │      Conditions:      │                         │         Type:         │
+                         │                       │                         │         Type:         ││   ws_order_number =   │                         │   ws_ship_addr_sk =   │                         │    Sequential Scan    │
+                         │                       │                         │    Sequential Scan    ││     ws_order_number   │                         │      ca_address_sk    │                         │                       │
+                         │                       │                         │                       ││   ws_warehouse_sk !=  ├────────────┐            │                       ├────────────┐            │      Projections:     │
+                         │                       │                         │      Projections:     ││     ws_warehouse_sk   │            │            │                       │            │            │      web_site_sk      │
+                         │                       │                         │    wr_order_number    ││                       │            │            │                       │            │            │                       │
+                         │                       │                         │                       ││                       │            │            │                       │            │            │        Filters:       │
+                         │                       │                         │                       ││                       │            │            │                       │            │            │ web_company_name='pri'│
+                         │                       │                         │                       ││                       │            │            │                       │            │            │                       │
+                         │    ~57,645,659 rows   │                         │     ~287,614 rows     ││    ~57,645,659 rows   │            │            │      ~77,775 rows     │            │            │        ~6 rows        │
+                         └───────────┬───────────┘                         └───────────────────────┘└───────────┬───────────┘            │            └───────────┬───────────┘            │            └───────────────────────┘
+                         ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐┌───────────┴───────────┐┌───────────┴───────────┐┌───────────┴───────────┐
+                         │       HASH_JOIN       │                                                  │       SEQ_SCAN        ││       SEQ_SCAN        ││       SEQ_SCAN        ││       SEQ_SCAN        │
+                         │    ────────────────   │                                                  │    ────────────────   ││    ────────────────   ││    ────────────────   ││    ────────────────   │
+                         │    Join Type: INNER   │                                                  │    Table: web_sales   ││    Table: web_sales   ││    Table: web_sales   ││         Table:        │
+                         │                       │                                                  │                       ││                       ││                       ││    customer_address   │
+                         │      Conditions:      │                                                  │         Type:         ││         Type:         ││         Type:         ││                       │
+                         │   ws_order_number =   │                                                  │    Sequential Scan    ││    Sequential Scan    ││    Sequential Scan    ││         Type:         │
+                         │     ws_order_number   │                                                  │                       ││                       ││                       ││    Sequential Scan    │
+                         │   ws_warehouse_sk !=  │                                                  │      Projections:     ││      Projections:     ││      Projections:     ││                       │
+                         │     ws_warehouse_sk   ├────────────┐                                     │    ws_order_number    ││    ws_order_number    ││    ws_ship_date_sk    ││      Projections:     │
+                         │                       │            │                                     │    ws_warehouse_sk    ││    ws_warehouse_sk    ││    ws_ship_addr_sk    ││     ca_address_sk     │
+                         │                       │            │                                     │                       ││                       ││     ws_web_site_sk    ││                       │
+                         │                       │            │                                     │                       ││                       ││    ws_order_number    ││        Filters:       │
+                         │                       │            │                                     │                       ││                       ││    ws_ext_ship_cost   ││     ca_state='TX'     │
+                         │                       │            │                                     │                       ││                       ││     ws_net_profit     ││                       │
+                         │                       │            │                                     │                       ││                       ││                       ││                       │
+                         │    ~57,645,659 rows   │            │                                     │    ~2,879,360 rows    ││    ~2,879,360 rows    ││    ~2,879,360 rows    ││      ~2,110 rows      │
+                         └───────────┬───────────┘            │                                     └───────────────────────┘└───────────────────────┘└───────────────────────┘└───────────────────────┘
+                         ┌───────────┴───────────┐┌───────────┴───────────┐
+                         │       SEQ_SCAN        ││       SEQ_SCAN        │
+                         │    ────────────────   ││    ────────────────   │
+                         │    Table: web_sales   ││    Table: web_sales   │
+                         │                       ││                       │
+                         │         Type:         ││         Type:         │
+                         │    Sequential Scan    ││    Sequential Scan    │
+                         │                       ││                       │
+                         │      Projections:     ││      Projections:     │
+                         │    ws_order_number    ││    ws_order_number    │
+                         │    ws_warehouse_sk    ││    ws_warehouse_sk    │
+                         │                       ││                       │
+                         │    ~2,879,360 rows    ││    ~2,879,360 rows    │
+                         └───────────────────────┘└───────────────────────┘

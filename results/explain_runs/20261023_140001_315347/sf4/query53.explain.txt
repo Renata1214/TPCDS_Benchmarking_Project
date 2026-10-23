@@ -1,0 +1,203 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  tmp1.avg_quarterly_sales │
+│             ASC           │
+│     tmp1.sum_sales ASC    │
+│   tmp1.i_manufact_id ASC  │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│       (CASE  WHEN (       │
+│ (avg_quarterly_sales > 0.0│
+│    )) THEN ((abs((CAST    │
+│  (sum_sales AS DOUBLE) -  │
+│   avg_quarterly_sales)) / │
+│    avg_quarterly_sales))  │
+│    ELSE NULL END > 0.1)   │
+│                           │
+│       ~125,658 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       i_manufact_id       │
+│         sum_sales         │
+│    avg_quarterly_sales    │
+│                           │
+│       ~125,658 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│       ~125,658 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│  avg(sum(ss_sales_price)) │
+│     OVER (PARTITION BY    │
+│       i_manufact_id)      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_integ│
+│     ral_integer(#0, 1)    │
+│__internal_decompress_integ│
+│     ral_integer(#1, 1)    │
+│             #2            │
+│                           │
+│       ~125,658 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│    Aggregates: sum(#2)    │
+│                           │
+│       ~125,658 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       i_manufact_id       │
+│           d_qoy           │
+│       ss_sales_price      │
+│                           │
+│       ~693,269 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_compress_integra│
+│     l_usmallint(#1, 1)    │
+│             #0            │
+│__internal_compress_integra│
+│     l_utinyint(#2, 1)     │
+│__internal_compress_integra│
+│     l_utinyint(#3, 1)     │
+│                           │
+│       ~693,269 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+│  ss_store_sk = s_store_sk │                                                                        │
+│                           │                                                                        │
+│       ~693,269 rows       │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │        Table: store       │
+│                           │                                                          │   Type: Sequential Scan   │
+│        Conditions:        │                                                          │                           │
+│ss_sold_date_sk = d_date_sk│                                                          │        Projections:       │
+│                           ├───────────────────────────────────────────┐              │         s_store_sk        │
+│                           │                                           │              │                           │
+│                           │                                           │              │          Filters:         │
+│                           │                                           │              │       s_store_sk<=40      │
+│                           │                                           │              │                           │
+│       ~693,269 rows       │                                           │              │          ~42 rows         │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │           FILTER          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │ (d_date_sk BETWEEN 2450816│
+│                           │                             │        AND 2452642)       │
+│        Conditions:        ├──────────────┐              │                           │
+│   ss_item_sk = i_item_sk  │              │              │                           │
+│                           │              │              │                           │
+│      ~2,518,956 rows      │              │              │        ~14,609 rows       │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         PROJECTION        ││         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││             #0            ││      Table: date_dim      │
+│   Type: Sequential Scan   ││             #4            ││   Type: Sequential Scan   │
+│                           ││                           ││                           │
+│        Projections:       ││                           ││        Projections:       │
+│         ss_item_sk        ││                           ││         d_date_sk         │
+│      ss_sold_date_sk      ││                           ││           d_qoy           │
+│        ss_store_sk        ││                           ││                           │
+│       ss_sales_price      ││                           ││          Filters:         │
+│                           ││                           ││   d_month_seq>=1212 AND   │
+│                           ││                           ││      d_month_seq<=1223    │
+│                           ││                           ││                           │
+│      ~11,519,024 rows     ││        ~9,200 rows        ││        ~14,609 rows       │
+└───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ ((((i_category = 'Books') │
+                             │      OR (i_category =     │
+                             │ 'Children') OR (i_category│
+                             │   = 'Electronics')) AND ( │
+                             │ (i_class = 'personal') OR │
+                             │ (i_class = 'portable') OR │
+                             │ (i_class = 'reference') OR│
+                             │  (i_class = 'self-help')) │
+                             │      AND ((i_brand =      │
+                             │  'scholaramalgamalg #14') │
+                             │       OR (i_brand =       │
+                             │ 'scholaramalgamalg #7') OR│
+                             │         (i_brand =        │
+                             │ 'exportiunivamalg #9') OR │
+                             │        (i_brand =         │
+                             │ 'scholaramalgamalg #9'))) │
+                             │  OR (((i_category = 'Women│
+                             │ ') OR (i_category = 'Music│
+                             │ ') OR (i_category = 'Men')│
+                             │     ) AND ((i_class =     │
+                             │ 'accessories') OR (i_class│
+                             │     = 'classical') OR     │
+                             │  (i_class = 'fragrances') │
+                             │   OR (i_class = 'pants')) │
+                             │      AND ((i_brand =      │
+                             │   'amalgimporto #1') OR   │
+                             │      (i_brand = 'edu      │
+                             │    packscholar #1') OR    │
+                             │ (i_brand = 'exportiimporto│
+                             │     #1') OR (i_brand =    │
+                             │   'importoamalg #1'))))   │
+                             │                           │
+                             │        ~9,200 rows        │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          │
+                             │    ────────────────────   │
+                             │        Table: item        │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         i_item_sk         │
+                             │         i_category        │
+                             │          i_class          │
+                             │          i_brand          │
+                             │       i_manufact_id       │
+                             │                           │
+                             │        ~46,000 rows       │
+                             └───────────────────────────┘

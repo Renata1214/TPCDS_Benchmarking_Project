@@ -1,0 +1,190 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│     sum(tpcds_sf4.main    │
+│        .store_sales       │
+│ .ss_ext_sales_price) DESC │
+│    tpcds_sf4.main.item    │
+│        .i_brand ASC       │
+│    tpcds_sf4.main.item    │
+│      .i_brand_id ASC      │
+│    tpcds_sf4.main.item    │
+│     .i_manufact_id ASC    │
+│    tpcds_sf4.main.item    │
+│      .i_manufact ASC      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          brand_id         │
+│           brand           │
+│       i_manufact_id       │
+│         i_manufact        │
+│         ext_price         │
+│                           │
+│         ~147 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│__internal_decompress_integ│
+│     ral_integer(#2, 1)    │
+│__internal_decompress_strin│
+│           g(#3)           │
+│             #4            │
+│                           │
+│         ~147 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│    Aggregates: sum(#4)    │
+│                           │
+│         ~147 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          i_brand          │
+│         i_brand_id        │
+│       i_manufact_id       │
+│         i_manufact        │
+│     ss_ext_sales_price    │
+│                           │
+│         ~148 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│__internal_compress_string_│
+│        ubigint(#1)        │
+│             #2            │
+│             #3            │
+│             #4            │
+│__internal_compress_integra│
+│     l_usmallint(#5, 1)    │
+│__internal_compress_string_│
+│        uhugeint(#6)       │
+│                           │
+│         ~148 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        │
+│      ca_address_sk =      ├──────────────┐
+│      c_current_addr_sk    │              │
+│  substr(ca_zip, 1, 5) !=  │              │
+│     substr(s_zip, 1, 5)   │              │
+│                           │              │
+│         ~148 rows         │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│           Table:          ││      Join Type: INNER     │
+│      customer_address     ││                           │
+│                           ││        Conditions:        │
+│   Type: Sequential Scan   ││      c_customer_sk =      │
+│                           ││       ss_customer_sk      ├──────────────┐
+│        Projections:       ││                           │              │
+│       ca_address_sk       ││                           │              │
+│           ca_zip          ││                           │              │
+│                           ││                           │              │
+│       ~116,000 rows       ││        ~1,517 rows        │              │
+└───────────────────────────┘└─────────────┬─────────────┘              │
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         HASH_JOIN         │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │      Table: customer      ││      Join Type: INNER     │
+                             │   Type: Sequential Scan   ││                           │
+                             │                           ││        Conditions:        │
+                             │        Projections:       ││  ss_store_sk = s_store_sk ├────────────────────────────────────────────────────────────────────────┐
+                             │       c_customer_sk       ││                           │                                                                        │
+                             │     c_current_addr_sk     ││                           │                                                                        │
+                             │                           ││                           │                                                                        │
+                             │       ~233,000 rows       ││        ~1,341 rows        │                                                                        │
+                             └───────────────────────────┘└─────────────┬─────────────┘                                                                        │
+                                                          ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+                                                          │    ────────────────────   │                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │                                                          │        Table: store       │
+                                                          │                           │                                                          │   Type: Sequential Scan   │
+                                                          │        Conditions:        │                                                          │                           │
+                                                          │   ss_item_sk = i_item_sk  │                                                          │        Projections:       │
+                                                          │                           ├───────────────────────────────────────────┐              │           s_zip           │
+                                                          │                           │                                           │              │         s_store_sk        │
+                                                          │                           │                                           │              │                           │
+                                                          │                           │                                           │              │          Filters:         │
+                                                          │                           │                                           │              │       s_store_sk<=40      │
+                                                          │                           │                                           │              │                           │
+                                                          │        ~1,341 rows        │                                           │              │          ~42 rows         │
+                                                          └─────────────┬─────────────┘                                           │              └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │                             │         SEQ_SCAN          │
+                                                          │    ────────────────────   │                             │    ────────────────────   │
+                                                          │      Join Type: INNER     │                             │        Table: item        │
+                                                          │                           │                             │   Type: Sequential Scan   │
+                                                          │        Conditions:        │                             │                           │
+                                                          │ss_sold_date_sk = d_date_sk│                             │        Projections:       │
+                                                          │                           │                             │         i_item_sk         │
+                                                          │                           │                             │          i_brand          │
+                                                          │                           ├──────────────┐              │         i_brand_id        │
+                                                          │                           │              │              │       i_manufact_id       │
+                                                          │                           │              │              │         i_manufact        │
+                                                          │                           │              │              │                           │
+                                                          │                           │              │              │          Filters:         │
+                                                          │                           │              │              │       i_manager_id=7      │
+                                                          │                           │              │              │                           │
+                                                          │       ~117,618 rows       │              │              │         ~480 rows         │
+                                                          └─────────────┬─────────────┘              │              └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         SEQ_SCAN          ││           FILTER          │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │     Table: store_sales    ││ (d_date_sk BETWEEN 2450816│
+                                                          │   Type: Sequential Scan   ││        AND 2452642)       │
+                                                          │                           ││                           │
+                                                          │        Projections:       ││                           │
+                                                          │      ss_sold_date_sk      ││                           │
+                                                          │         ss_item_sk        ││                           │
+                                                          │       ss_customer_sk      ││                           │
+                                                          │        ss_store_sk        ││                           │
+                                                          │     ss_ext_sales_price    ││                           │
+                                                          │                           ││                           │
+                                                          │      ~11,519,024 rows     ││         ~542 rows         │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘
+                                                                                       ┌─────────────┴─────────────┐
+                                                                                       │         SEQ_SCAN          │
+                                                                                       │    ────────────────────   │
+                                                                                       │      Table: date_dim      │
+                                                                                       │   Type: Sequential Scan   │
+                                                                                       │                           │
+                                                                                       │        Projections:       │
+                                                                                       │         d_date_sk         │
+                                                                                       │                           │
+                                                                                       │          Filters:         │
+                                                                                       │          d_moy=11         │
+                                                                                       │        d_year=1999        │
+                                                                                       │                           │
+                                                                                       │         ~542 rows         │
+                                                                                       └───────────────────────────┘

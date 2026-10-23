@@ -1,0 +1,278 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────┐
+│       TOP_N       │
+│    ────────────   │
+│      Top: 100     │
+│                   │
+│     Order By:     │
+│  segments.segment │
+│         ASC       │
+│  count_star() ASC │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│      segment      │
+│   num_customers   │
+│    segment_base   │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│   HASH_GROUP_BY   │
+│    ────────────   │
+│     Groups: #0    │
+│                   │
+│    Aggregates:    │
+│    count_star()   │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│      segment      │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│      segment      │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│      revenue      │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│   HASH_GROUP_BY   │
+│    ────────────   │
+│     Groups: #0    │
+│                   │
+│    Aggregates:    │
+│      sum(#1)      │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│   c_customer_sk   │
+│ ss_ext_sales_price│
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     PROJECTION    │
+│    ────────────   │
+│         #1        │
+│         #0        │
+│__internal_compress│
+│_integral_usmallint│
+│   (#2, 2450816)   │
+│__internal_compress│
+│_integral_usmallint│
+│      (#3, 0)      │
+│         #4        │
+│         #5        │
+│                   │
+│      ~0 rows      │
+└─────────┬─────────┘
+┌─────────┴─────────┐
+│     HASH_JOIN     │
+│    ────────────   │
+│     Join Type:    │
+│       INNER       │
+│                   │
+│    Conditions:    ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ss_sold_date_sk = │                                                                                                                                                             │
+│      d_date_sk    │                                                                                                                                                             │
+│                   │                                                                                                                                                             │
+│      ~0 rows      │                                                                                                                                                             │
+└─────────┬─────────┘                                                                                                                                                             │
+┌─────────┴─────────┐                                                                                                                                                   ┌─────────┴─────────┐
+│     HASH_JOIN     │                                                                                                                                                   │  NESTED_LOOP_JOIN │
+│    ────────────   │                                                                                                                                                   │    ────────────   │
+│     Join Type:    │                                                                                                                                                   │     Join Type:    │
+│       INNER       │                                                                                                                                                   │       INNER       │
+│                   │                                                                                                                                                   │                   │
+│    Conditions:    ├──────────┐                                                                                                                                        │    Conditions:    ├───────────────────────────────┐
+│  ss_customer_sk = │          │                                                                                                                                        │   d_month_seq <=  │                               │
+│    c_customer_sk  │          │                                                                                                                                        │      SUBQUERY     │                               │
+│                   │          │                                                                                                                                        │                   │                               │
+│     ~652 rows     │          │                                                                                                                                        │      ~8 rows      │                               │
+└─────────┬─────────┘          │                                                                                                                                        └─────────┬─────────┘                               │
+┌─────────┴─────────┐┌─────────┴─────────┐                                                                                                                              ┌─────────┴─────────┐                     ┌─────────┴─────────┐
+│     SEQ_SCAN      ││     HASH_JOIN     │                                                                                                                              │  NESTED_LOOP_JOIN │                     │     PROJECTION    │
+│    ────────────   ││    ────────────   │                                                                                                                              │    ────────────   │                     │    ────────────   │
+│       Table:      ││     Join Type:    │                                                                                                                              │     Join Type:    │                     │ CASE  WHEN ((#1 > │
+│    store_sales    ││       INNER       │                                                                                                                              │       INNER       │                     │  1)) THEN ("error"│
+│                   ││                   │                                                                                                                              │                   │                     │  ('More than one  │
+│       Type:       ││    Conditions:    │                                                                                                                              │    Conditions:    │                     │  row returned by a│
+│  Sequential Scan  ││    ca_county =    │                                                                                                                              │   d_month_seq >=  │                     │  subquery used as │
+│                   ││      s_county     │                                                                                                                              │      SUBQUERY     │                     │   an expression - │
+│    Projections:   ││ ca_state = s_state│                                                                                                                              │                   │                     │  scalar subqueries│
+│  ss_sold_date_sk  ││                   │                                                                                                                              │                   │                     │  can only return a│
+│   ss_customer_sk  ││                   │                                                                                                                              │                   │                     │     single row.   │
+│ ss_ext_sales_price││                   ├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐          │                   ├──────────┐          │      Use "SET     │
+│                   ││                   │                                                                                                                   │          │                   │          │          │ scalar_subquery_er│
+│                   ││                   │                                                                                                                   │          │                   │          │          │ror_on_multiple_row│
+│                   ││                   │                                                                                                                   │          │                   │          │          │ s=false" to revert│
+│                   ││                   │                                                                                                                   │          │                   │          │          │     to previous   │
+│                   ││                   │                                                                                                                   │          │                   │          │          │     behavior of   │
+│                   ││                   │                                                                                                                   │          │                   │          │          │     returning a   │
+│                   ││                   │                                                                                                                   │          │                   │          │          │   random row.'))  │
+│                   ││                   │                                                                                                                   │          │                   │          │          │     ELSE #0 END   │
+│                   ││                   │                                                                                                                   │          │                   │          │          │                   │
+│  ~11,519,024 rows ││      ~9 rows      │                                                                                                                   │          │     ~767 rows     │          │          │       ~1 row      │
+└───────────────────┘└─────────┬─────────┘                                                                                                                   │          └─────────┬─────────┘          │          └─────────┬─────────┘
+                     ┌─────────┴─────────┐                                                                                                         ┌─────────┴─────────┐┌─────────┴─────────┐┌─────────┴─────────┐┌─────────┴─────────┐
+                     │     HASH_JOIN     │                                                                                                         │     SEQ_SCAN      ││     SEQ_SCAN      ││     PROJECTION    ││UNGROUPED_AGGREGATE│
+                     │    ────────────   │                                                                                                         │    ────────────   ││    ────────────   ││    ────────────   ││    ────────────   │
+                     │     Join Type:    │                                                                                                         │    Table: store   ││       Table:      ││ CASE  WHEN ((#1 > ││    Aggregates:    │
+                     │       INNER       │                                                                                                         │                   ││      date_dim     ││  1)) THEN ("error"││    "first"(#0)    │
+                     │                   │                                                                                                         │       Type:       ││                   ││  ('More than one  ││    count_star()   │
+                     │    Conditions:    │                                                                                                         │  Sequential Scan  ││       Type:       ││  row returned by a││                   │
+                     │  ca_address_sk =  │                                                                                                         │                   ││  Sequential Scan  ││  subquery used as ││                   │
+                     │  c_current_addr_sk│                                                                                                         │    Projections:   ││                   ││   an expression - ││                   │
+                     │                   │                                                                                                         │      s_county     ││    Projections:   ││  scalar subqueries││                   │
+                     │                   │                                                                                                         │      s_state      ││     d_date_sk     ││  can only return a││                   │
+                     │                   │                                                                                                         │                   ││    d_month_seq    ││     single row.   ││                   │
+                     │                   ├──────────┐                                                                                              │                   ││                   ││      Use "SET     ││                   │
+                     │                   │          │                                                                                              │                   ││      Filters:     ││ scalar_subquery_er││                   │
+                     │                   │          │                                                                                              │                   ││ d_date_sk>=2450816││ror_on_multiple_row││                   │
+                     │                   │          │                                                                                              │                   ││   AND d_date_sk<  ││ s=false" to revert││                   │
+                     │                   │          │                                                                                              │                   ││      =2452642     ││     to previous   ││                   │
+                     │                   │          │                                                                                              │                   ││                   ││     behavior of   ││                   │
+                     │                   │          │                                                                                              │                   ││                   ││     returning a   ││                   │
+                     │                   │          │                                                                                              │                   ││                   ││   random row.'))  ││                   │
+                     │                   │          │                                                                                              │                   ││                   ││     ELSE #0 END   ││                   │
+                     │                   │          │                                                                                              │                   ││                   ││                   ││                   │
+                     │     ~871 rows     │          │                                                                                              │      ~42 rows     ││    ~73,049 rows   ││       ~1 row      ││                   │
+                     └─────────┬─────────┘          │                                                                                              └───────────────────┘└───────────────────┘└─────────┬─────────┘└─────────┬─────────┘
+                     ┌─────────┴─────────┐┌─────────┴─────────┐                                                                                                                              ┌─────────┴─────────┐┌─────────┴─────────┐
+                     │     SEQ_SCAN      ││   HASH_GROUP_BY   │                                                                                                                              │UNGROUPED_AGGREGATE││     PROJECTION    │
+                     │    ────────────   ││    ────────────   │                                                                                                                              │    ────────────   ││    ────────────   │
+                     │       Table:      ││      Groups:      │                                                                                                                              │    Aggregates:    ││         #0        │
+                     │  customer_address ││         #0        │                                                                                                                              │    "first"(#0)    ││                   │
+                     │                   ││         #1        │                                                                                                                              │    count_star()   ││                   │
+                     │       Type:       ││                   │                                                                                                                              │                   ││                   │
+                     │  Sequential Scan  ││                   │                                                                                                                              │                   ││                   │
+                     │                   ││                   │                                                                                                                              │                   ││                   │
+                     │    Projections:   ││                   │                                                                                                                              │                   ││                   │
+                     │   ca_address_sk   ││                   │                                                                                                                              │                   ││                   │
+                     │     ca_county     ││                   │                                                                                                                              │                   ││                   │
+                     │      ca_state     ││                   │                                                                                                                              │                   ││                   │
+                     │                   ││                   │                                                                                                                              │                   ││                   │
+                     │   ~116,000 rows   ││    ~1,027 rows    │                                                                                                                              │                   ││     ~542 rows     │
+                     └───────────────────┘└─────────┬─────────┘                                                                                                                              └─────────┬─────────┘└─────────┬─────────┘
+                                          ┌─────────┴─────────┐                                                                                                                              ┌─────────┴─────────┐┌─────────┴─────────┐
+                                          │     PROJECTION    │                                                                                                                              │     PROJECTION    ││     PROJECTION    │
+                                          │    ────────────   │                                                                                                                              │    ────────────   ││    ────────────   │
+                                          │   c_customer_sk   │                                                                                                                              │         #0        ││__internal_decompre│
+                                          │ c_current_addr_sk │                                                                                                                              │                   ││ss_integral_integer│
+                                          │                   │                                                                                                                              │                   ││      (#0, 3)      │
+                                          │                   │                                                                                                                              │                   ││                   │
+                                          │    ~1,027 rows    │                                                                                                                              │     ~542 rows     ││     ~542 rows     │
+                                          └─────────┬─────────┘                                                                                                                              └─────────┬─────────┘└─────────┬─────────┘
+                                          ┌─────────┴─────────┐                                                                                                                              ┌─────────┴─────────┐┌─────────┴─────────┐
+                                          │     PROJECTION    │                                                                                                                              │     PROJECTION    ││   HASH_GROUP_BY   │
+                                          │    ────────────   │                                                                                                                              │    ────────────   ││    ────────────   │
+                                          │   c_customer_sk   │                                                                                                                              │__internal_decompre││     Groups: #0    │
+                                          │ c_current_addr_sk │                                                                                                                              │ss_integral_integer││                   │
+                                          │                   │                                                                                                                              │      (#0, 1)      ││                   │
+                                          │                   │                                                                                                                              │                   ││                   │
+                                          │    ~1,027 rows    │                                                                                                                              │     ~542 rows     ││     ~542 rows     │
+                                          └─────────┬─────────┘                                                                                                                              └─────────┬─────────┘└─────────┬─────────┘
+                                          ┌─────────┴─────────┐                                                                                                                              ┌─────────┴─────────┐┌─────────┴─────────┐
+                                          │     HASH_JOIN     │                                                                                                                              │   HASH_GROUP_BY   ││     PROJECTION    │
+                                          │    ────────────   │                                                                                                                              │    ────────────   ││    ────────────   │
+                                          │     Join Type:    │                                                                                                                              │     Groups: #0    ││ (d_month_seq + 3) │
+                                          │       INNER       │                                                                                                                              │                   ││                   │
+                                          │                   │                                                                                                                              │                   ││                   │
+                                          │    Conditions:    ├──────────┐                                                                                                                   │                   ││                   │
+                                          │  c_customer_sk =  │          │                                                                                                                   │                   ││                   │
+                                          │     customer_sk   │          │                                                                                                                   │                   ││                   │
+                                          │                   │          │                                                                                                                   │                   ││                   │
+                                          │    ~1,027 rows    │          │                                                                                                                   │     ~542 rows     ││     ~542 rows     │
+                                          └─────────┬─────────┘          │                                                                                                                   └─────────┬─────────┘└─────────┬─────────┘
+                                          ┌─────────┴─────────┐┌─────────┴─────────┐                                                                                                         ┌─────────┴─────────┐┌─────────┴─────────┐
+                                          │     SEQ_SCAN      ││     HASH_JOIN     │                                                                                                         │     PROJECTION    ││     PROJECTION    │
+                                          │    ────────────   ││    ────────────   │                                                                                                         │    ────────────   ││    ────────────   │
+                                          │       Table:      ││     Join Type:    │                                                                                                         │ (d_month_seq + 1) ││__internal_compress│
+                                          │      customer     ││       INNER       │                                                                                                         │                   ││_integral_usmallint│
+                                          │                   ││                   │                                                                                                         │                   ││      (#0, 3)      │
+                                          │       Type:       ││    Conditions:    │                                                                                                         │                   ││                   │
+                                          │  Sequential Scan  ││item_sk = i_item_sk├────────────────────────────────────────────────────┐                                                    │                   ││                   │
+                                          │                   ││                   │                                                    │                                                    │                   ││                   │
+                                          │    Projections:   ││                   │                                                    │                                                    │                   ││                   │
+                                          │   c_customer_sk   ││                   │                                                    │                                                    │                   ││                   │
+                                          │ c_current_addr_sk ││                   │                                                    │                                                    │                   ││                   │
+                                          │                   ││                   │                                                    │                                                    │                   ││                   │
+                                          │   ~233,000 rows   ││     ~909 rows     │                                                    │                                                    │     ~542 rows     ││     ~542 rows     │
+                                          └───────────────────┘└─────────┬─────────┘                                                    │                                                    └─────────┬─────────┘└─────────┬─────────┘
+                                                               ┌─────────┴─────────┐                                          ┌─────────┴─────────┐                                          ┌─────────┴─────────┐┌─────────┴─────────┐
+                                                               │     HASH_JOIN     │                                          │     SEQ_SCAN      │                                          │     PROJECTION    ││     PROJECTION    │
+                                                               │    ────────────   │                                          │    ────────────   │                                          │    ────────────   ││    ────────────   │
+                                                               │     Join Type:    │                                          │    Table: item    │                                          │__internal_compress││ (d_month_seq + 3) │
+                                                               │       INNER       │                                          │                   │                                          │_integral_usmallint││                   │
+                                                               │                   │                                          │       Type:       │                                          │      (#0, 1)      ││                   │
+                                                               │    Conditions:    │                                          │  Sequential Scan  │                                          │                   ││                   │
+                                                               │   sold_date_sk =  │                                          │                   │                                          │                   ││                   │
+                                                               │      d_date_sk    │                                          │    Projections:   │                                          │                   ││                   │
+                                                               │                   ├───────────────────────────────┐          │     i_item_sk     │                                          │                   ││                   │
+                                                               │                   │                               │          │                   │                                          │                   ││                   │
+                                                               │                   │                               │          │      Filters:     │                                          │                   ││                   │
+                                                               │                   │                               │          │    i_category=    │                                          │                   ││                   │
+                                                               │                   │                               │          │     'Jewelry'     │                                          │                   ││                   │
+                                                               │                   │                               │          │      i_class=     │                                          │                   ││                   │
+                                                               │                   │                               │          │   'consignment'   │                                          │                   ││                   │
+                                                               │                   │                               │          │                   │                                          │                   ││                   │
+                                                               │    ~88,214 rows   │                               │          │     ~434 rows     │                                          │     ~542 rows     ││     ~542 rows     │
+                                                               └─────────┬─────────┘                               │          └───────────────────┘                                          └─────────┬─────────┘└─────────┬─────────┘
+                                                               ┌─────────┴─────────┐                     ┌─────────┴─────────┐                                                               ┌─────────┴─────────┐┌─────────┴─────────┐
+                                                               │       UNION       │                     │       FILTER      │                                                               │     PROJECTION    ││     SEQ_SCAN      │
+                                                               │                   │                     │    ────────────   │                                                               │    ────────────   ││    ────────────   │
+                                                               │                   │                     │ (d_date_sk BETWEEN│                                                               │ (d_month_seq + 1) ││       Table:      │
+                                                               │                   │                     │     2450815 AND   │                                                               │                   ││      date_dim     │
+                                                               │                   │                     │      2452653)     │                                                               │                   ││                   │
+                                                               │                   │                     │                   │                                                               │                   ││       Type:       │
+                                                               │                   │                     │                   │                                                               │                   ││  Sequential Scan  │
+                                                               │                   │                     │                   │                                                               │                   ││                   │
+                                                               │                   ├──────────┐          │                   │                                                               │                   ││    Projections:   │
+                                                               │                   │          │          │                   │                                                               │                   ││    d_month_seq    │
+                                                               │                   │          │          │                   │                                                               │                   ││                   │
+                                                               │                   │          │          │                   │                                                               │                   ││      Filters:     │
+                                                               │                   │          │          │                   │                                                               │                   ││    d_year=1999    │
+                                                               │                   │          │          │                   │                                                               │                   ││      d_moy=3      │
+                                                               │                   │          │          │                   │                                                               │                   ││                   │
+                                                               │                   │          │          │     ~542 rows     │                                                               │     ~542 rows     ││     ~542 rows     │
+                                                               └─────────┬─────────┘          │          └─────────┬─────────┘                                                               └─────────┬─────────┘└───────────────────┘
+                                                               ┌─────────┴─────────┐┌─────────┴─────────┐┌─────────┴─────────┐                                                               ┌─────────┴─────────┐
+                                                               │     SEQ_SCAN      ││     SEQ_SCAN      ││     SEQ_SCAN      │                                                               │     SEQ_SCAN      │
+                                                               │    ────────────   ││    ────────────   ││    ────────────   │                                                               │    ────────────   │
+                                                               │       Table:      ││       Table:      ││       Table:      │                                                               │       Table:      │
+                                                               │   catalog_sales   ││     web_sales     ││      date_dim     │                                                               │      date_dim     │
+                                                               │                   ││                   ││                   │                                                               │                   │
+                                                               │       Type:       ││       Type:       ││       Type:       │                                                               │       Type:       │
+                                                               │  Sequential Scan  ││  Sequential Scan  ││  Sequential Scan  │                                                               │  Sequential Scan  │
+                                                               │                   ││                   ││                   │                                                               │                   │
+                                                               │    Projections:   ││    Projections:   ││    Projections:   │                                                               │    Projections:   │
+                                                               │  cs_sold_date_sk  ││  ws_sold_date_sk  ││     d_date_sk     │                                                               │    d_month_seq    │
+                                                               │cs_bill_customer_sk││ws_bill_customer_sk││                   │                                                               │                   │
+                                                               │     cs_item_sk    ││     ws_item_sk    ││      Filters:     │                                                               │      Filters:     │
+                                                               │                   ││                   ││      d_moy=3      │                                                               │    d_year=1999    │
+                                                               │                   ││                   ││    d_year=1999    │                                                               │      d_moy=3      │
+                                                               │                   ││                   ││                   │                                                               │                   │
+                                                               │  ~5,759,989 rows  ││  ~2,879,360 rows  ││     ~542 rows     │                                                               │     ~542 rows     │
+                                                               └───────────────────┘└───────────────────┘└───────────────────┘                                                               └───────────────────┘

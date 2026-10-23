@@ -1,0 +1,84 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│ (CAST(am.amc AS DECIMAL(15│
+│   ,4)) / CAST(pt.pmc AS   │
+│     DECIMAL(15,4))) ASC   │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        am_pm_ratio        │
+│                           │
+│           ~1 row          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       CROSS_PRODUCT       ├─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+└─────────────┬─────────────┘                                                                                                     │
+┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│    UNGROUPED_AGGREGATE    │                                                                                       │    UNGROUPED_AGGREGATE    │
+│    ────────────────────   │                                                                                       │    ────────────────────   │
+│        Aggregates:        │                                                                                       │        Aggregates:        │
+│        count_star()       │                                                                                       │        count_star()       │
+└─────────────┬─────────────┘                                                                                       └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                       │         HASH_JOIN         │
+│    ────────────────────   │                                                                                       │    ────────────────────   │
+│      Join Type: INNER     │                                                                                       │      Join Type: INNER     │
+│                           │                                                                                       │                           │
+│        Conditions:        ├──────────────┐                                                                        │        Conditions:        ├──────────────┐
+│t_time_sk = ws_sold_time_sk│              │                                                                        │t_time_sk = ws_sold_time_sk│              │
+│                           │              │                                                                        │                           │              │
+│        ~3,283 rows        │              │                                                                        │        ~3,283 rows        │              │
+└─────────────┬─────────────┘              │                                                                        └─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│           FILTER          ││         HASH_JOIN         │                                                          │           FILTER          ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │                                                          │    ────────────────────   ││    ────────────────────   │
+│  (t_time_sk BETWEEN 7 AND ││      Join Type: INNER     │                                                          │  (t_time_sk BETWEEN 7 AND ││      Join Type: INNER     │
+│           86367)          ││                           │                                                          │           86367)          ││                           │
+│                           ││        Conditions:        ├───────────────────────────────────────────┐              │                           ││        Conditions:        ├───────────────────────────────────────────┐
+│                           ││      ws_web_page_sk =     │                                           │              │                           ││      ws_web_page_sk =     │                                           │
+│                           ││       wp_web_page_sk      │                                           │              │                           ││       wp_web_page_sk      │                                           │
+│                           ││                           │                                           │              │                           ││                           │                                           │
+│        ~17,280 rows       ││        ~14,023 rows       │                                           │              │        ~17,280 rows       ││        ~14,023 rows       │                                           │
+└─────────────┬─────────────┘└─────────────┬─────────────┘                                           │              └─────────────┬─────────────┘└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         HASH_JOIN         │                             │         SEQ_SCAN          ││         SEQ_SCAN          ││         HASH_JOIN         │                             │         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   │                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │                             │    ────────────────────   │
+│      Table: time_dim      ││      Join Type: INNER     │                             │      Table: web_page      ││      Table: time_dim      ││      Join Type: INNER     │                             │      Table: web_page      │
+│   Type: Sequential Scan   ││                           │                             │   Type: Sequential Scan   ││   Type: Sequential Scan   ││                           │                             │   Type: Sequential Scan   │
+│                           ││        Conditions:        │                             │                           ││                           ││        Conditions:        │                             │                           │
+│        Projections:       ││     ws_ship_hdemo_sk =    │                             │        Projections:       ││        Projections:       ││     ws_ship_hdemo_sk =    │                             │        Projections:       │
+│         t_time_sk         ││         hd_demo_sk        ├──────────────┐              │       wp_web_page_sk      ││         t_time_sk         ││         hd_demo_sk        ├──────────────┐              │       wp_web_page_sk      │
+│                           ││                           │              │              │                           ││                           ││                           │              │              │                           │
+│          Filters:         ││                           │              │              │          Filters:         ││          Filters:         ││                           │              │              │          Filters:         │
+│  t_hour>=6 AND t_hour<=7  ││                           │              │              │  wp_char_count>=5000 AND  ││ t_hour>=14 AND t_hour<=15 ││                           │              │              │  wp_char_count>=5000 AND  │
+│                           ││                           │              │              │     wp_char_count<=5200   ││                           ││                           │              │              │     wp_char_count<=5200   │
+│                           ││                           │              │              │                           ││                           ││                           │              │              │                           │
+│        ~17,280 rows       ││        ~65,443 rows       │              │              │          ~12 rows         ││        ~17,280 rows       ││        ~65,443 rows       │              │              │          ~12 rows         │
+└───────────────────────────┘└─────────────┬─────────────┘              │              └───────────────────────────┘└───────────────────────────┘└─────────────┬─────────────┘              │              └───────────────────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         SEQ_SCAN          │                                                          │         SEQ_SCAN          ││         SEQ_SCAN          │
+                             │    ────────────────────   ││    ────────────────────   │                                                          │    ────────────────────   ││    ────────────────────   │
+                             │      Table: web_sales     ││           Table:          │                                                          │      Table: web_sales     ││           Table:          │
+                             │   Type: Sequential Scan   ││   household_demographics  │                                                          │   Type: Sequential Scan   ││   household_demographics  │
+                             │                           ││                           │                                                          │                           ││                           │
+                             │        Projections:       ││   Type: Sequential Scan   │                                                          │        Projections:       ││   Type: Sequential Scan   │
+                             │      ws_sold_time_sk      ││                           │                                                          │      ws_sold_time_sk      ││                           │
+                             │      ws_ship_hdemo_sk     ││        Projections:       │                                                          │      ws_ship_hdemo_sk     ││        Projections:       │
+                             │       ws_web_page_sk      ││         hd_demo_sk        │                                                          │       ws_web_page_sk      ││         hd_demo_sk        │
+                             │                           ││                           │                                                          │                           ││                           │
+                             │                           ││          Filters:         │                                                          │                           ││          Filters:         │
+                             │                           ││       hd_dep_count=8      │                                                          │                           ││       hd_dep_count=8      │
+                             │                           ││                           │                                                          │                           ││                           │
+                             │       ~719,384 rows       ││         ~655 rows         │                                                          │       ~719,384 rows       ││         ~655 rows         │
+                             └───────────────────────────┘└───────────────────────────┘                                                          └───────────────────────────┘└───────────────────────────┘
