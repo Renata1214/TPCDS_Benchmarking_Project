@@ -1,0 +1,120 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  i_product_name              ,i_brand              ,i_class              ,i_category              ,avg(inv_quantity_on_hand) qoh        from inventory            ,date_dim            ,item        where inv_date_sk=d_date_sk               and inv_item_sk=i_item_sk               and d_month_seq between 1212 and 1212 + 11        group by rollup(i_product_name                        ,i_brand                        ,i_class                        ,i_category) order by qoh, i_product_name, i_brand, i_class, i_category limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││               Total Time: 1.93s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│     avg(tpcds_sf4.main    │
+│         .inventory        │
+│ .inv_quantity_on_hand) ASC│
+│    tpcds_sf4.main.item    │
+│    .i_product_name ASC    │
+│    tpcds_sf4.main.item    │
+│        .i_brand ASC       │
+│    tpcds_sf4.main.item    │
+│        .i_class ASC       │
+│    tpcds_sf4.main.item    │
+│      .i_category ASC      │
+│                           │
+│          100 rows         │
+│          (0.02s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│    Aggregates: avg(#4)    │
+│                           │
+│        91,912 rows        │
+│          (21.51s)         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       i_product_name      │
+│          i_brand          │
+│          i_class          │
+│         i_category        │
+│    inv_quantity_on_hand   │
+│                           │
+│       7,176,312 rows      │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├───────────────────────────────────────────┐
+│  inv_item_sk = i_item_sk  │                                           │
+│                           │                                           │
+│       7,176,312 rows      │                                           │
+│          (0.07s)          │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         TABLE_SCAN        │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │        Table: item        │
+│                           │                             │   Type: Sequential Scan   │
+│        Conditions:        ├──────────────┐              │                           │
+│  inv_date_sk = d_date_sk  │              │              │                           │
+│                           │              │              │                           │
+│       7,176,312 rows      │              │              │        46,000 rows        │
+│          (0.09s)          │              │              │          (0.00s)          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│      Table: inventory     ││             #0            │
+│   Type: Sequential Scan   ││                           │
+│                           ││                           │
+│       7,176,312 rows      ││          365 rows         │
+│          (0.11s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ (d_date_sk BETWEEN 2450815│
+                             │        AND 2452635)       │
+                             │                           │
+                             │          365 rows         │
+                             │          (0.00s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        │
+                             │    ────────────────────   │
+                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │          Filters:         │
+                             │   d_month_seq>=1212 AND   │
+                             │      d_month_seq<=1223    │
+                             │                           │
+                             │          365 rows         │
+                             │          (0.00s)          │
+                             └───────────────────────────┘

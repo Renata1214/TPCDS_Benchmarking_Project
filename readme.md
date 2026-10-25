@@ -166,15 +166,15 @@ The chart generator uses only the Python standard library and writes SVG, HTML, 
 
 ### Save query plans for each scale
 
-Run `EXPLAIN` and `EXPLAIN ANALYZE` for every query against each selected scale's DuckDB database:
+Run one full workload warm-up round, then save `EXPLAIN` and `EXPLAIN ANALYZE` for every query against each selected scale's DuckDB database:
 
 ```bash
-REFERENCE_SCALE_GB=10 python3 scripts/explain_duckdb_queries.py 0.1 0.2 0.5
+REFERENCE_SCALE_GB=10 python3 scripts/explain_duckdb_queries.py --warmup-rounds 1 0.1 0.2 0.4 0.8
 ```
 
-If no factors are provided, the script uses `0.1 0.2 0.5`. It converts each factor to its physical scale using `REFERENCE_SCALE_GB`, selects the matching query from `queries/sf<scale>/` when available (otherwise using `queries/all_templates/`), and connects to `duckdb/tpcds_sf<scale>.duckdb`. Both plan modes run independently for each query. `EXPLAIN ANALYZE` executes the query, so it can take significant time; set `TIMEOUT_SECONDS=600` (or another positive number) to change the per-operation timeout. The script continues after an individual failure or timeout and reports it.
+If no factors are provided, the script uses `0.1 0.2 0.5`. It converts each factor to its physical scale using `REFERENCE_SCALE_GB`, selects the matching query from `queries/sf<scale>/` when available (otherwise using `queries/all_templates/`), and connects to `duckdb/tpcds_sf<scale>.duckdb`. It executes each query once in ascending query-number order as a complete warm-up pass, then captures both plan modes in the same persistent DuckDB session. Warm-up executions and plan captures are recorded separately; `EXPLAIN ANALYZE` also executes its query and can take significant time. Set `TIMEOUT_SECONDS=600` (or another positive number) to change the per-statement timeout. A timeout ends plan collection for that scale rather than restarting without a new warm-up.
 
-Each run creates a timestamped directory under `results/explain_runs/` with `sf<scale>/query<number>.explain.txt` and `sf<scale>/query<number>.explain_analyze.txt` files. `explain_results.csv` records the status, elapsed time, source query, and output path for each operation.
+Each run creates a timestamped directory under `results/explain_runs/` with `sf<scale>/query<number>.explain.txt` and `sf<scale>/query<number>.explain_analyze.txt` files. `warmup_results.csv` records warm-up round, query execution position, status, and elapsed time. `explain_results.csv` records the warm-up status, DuckDB version, session ID, status, elapsed time, source query, and output path for each plan operation. `metadata.txt` describes the warm-up and collection order.
 
 To combine the per-query outputs into two documents in each scale directory, pass the run directory to:
 
@@ -184,7 +184,47 @@ python3 scripts/combine_explain_outputs.py results/explain_runs/20261023_140001_
 
 This creates `combined_explain.txt` and `combined_explain_analyze.txt` in each `sf<scale>/` directory. Query sections are sorted numerically and labeled with their original filenames. The script reports a warning if the run has different numbers of output files for the two modes.
 
+Parse the per-query plans and create CSV/JSON diagnostics in the run's `plan_analysis/` directory:
 
+```bash
+python3 scripts/duckdb_plan_analysis.py results/explain_runs/<run_id>
+```
+
+### Compare estimated and actual operator cardinalities with JSON
+
+For a structured estimate-versus-actual comparison, run the collector inside the project Docker image:
+
+```bash
+docker compose run --rm -T --entrypoint python3 tpcds scripts/compare_duckdb_cardinalities.py
+```
+
+It discovers available `duckdb/tpcds_sfN.duckdb` databases and uses the matching `queries/sfN/` workload (falling back to `queries/all_templates/`). By default, it warms each scale with one complete query pass, then saves `EXPLAIN (FORMAT JSON)` and an execution JSON profile for each query in the same DuckDB session. The collector requires DuckDB 1.4.3, keeps its outputs in a new `results/cardinality_runs/<timestamp>/` directory, and does not modify the text explain runs or benchmark timing data.
+
+The aggregate `operator_cardinality_comparison.csv` contains one row per operator path. It reports the estimate, actual count, absolute difference, and `estimated_to_actual_ratio` (estimate divided by actual; blank when the actual count is zero). The `estimated_rows` value prefers the estimate on the profiled operator and falls back to the estimate from the JSON EXPLAIN node at the same tree path. `comparison_status` and `match_confidence` flag missing metrics, unmatched paths, operator-type mismatches, and descendants of an unmatched/mismatched node; numeric differences are calculated only if the operator path, its full ancestor path, and normalized operator type match. `SEQ_SCAN` and `TABLE_SCAN` are treated as equivalent DuckDB scan labels.
+
+Raw JSON plans and profiles are stored under each `sfN/json_explains/` and `sfN/json_profiles/` folder. Per-scale comparisons and query summaries are also written to the corresponding `sfN/` folder. `summary.json`, `metadata.txt`, and `warmup_results.csv` report coverage, missing metrics, collection settings, and warm-up executions. Profile timing remains diagnostic only; use the independent benchmark CSVs for performance comparisons. To rebuild comparison CSVs from an existing run’s saved JSON after an analysis-logic change—without rerunning the workload—use:
+
+```bash
+docker compose run --rm -T --entrypoint python3 tpcds scripts/compare_duckdb_cardinalities.py --reprocess-run results/cardinality_runs/<run_id>
+```
+
+To test a small subset before a full collection, select scales and query IDs explicitly:
+
+```bash
+docker compose run --rm -T --entrypoint python3 tpcds scripts/compare_duckdb_cardinalities.py --query-ids 1 --timeout-seconds 120 1
+```
+
+### Repository data sources and analysis provenance
+
+The current repository already contains the core evidence needed for a benchmark and plan-analysis workflow:
+
+- Benchmark timings are stored under `results/benchmark_runs/<timestamp>/query_metrics.csv` and per-scale summaries under `results/benchmark_runs/<timestamp>/summaries/query_summary_sfN.csv`.
+- Each measured row keeps `factor`, `scale_gb`, `query`, `iteration`, latency, CPU time, memory, exit code, and the SQL/log paths, so benchmark analysis can separate warmup from measured rounds and preserve round-based execution order.
+- Dual-purpose `EXPLAIN` and `EXPLAIN ANALYZE` outputs live under `results/explain_runs/<timestamp>/sfN/`, with one text plan per query and mode. The repository also includes combined documents per scale, which makes cross-query comparisons easier.
+- DuckDB metadata is recorded in `metadata.txt` for each run and includes the exact DuckDB version, platform, CPU count, factor list, and timeout settings. This keeps benchmark results traceable and prevents silently mixing incompatible environments.
+- The planned analysis pipeline is implemented in `scripts/duckdb_plan_analysis.py`, which conservatively extracts operator names and any row/timing metrics from the text plans, writes a file-level diagnostics CSV, and saves an operator-level summary CSV. It explicitly marks partial or failed parses instead of fabricating missing information.
+
+This separation matters because benchmark timings and profile timings are different measurements. The benchmark CSVs are the authoritative source for wall-clock performance comparisons, while the explain outputs are diagnostic only and should not be added to the benchmark metrics without an explicit provenance label.
 
 
 DELETE

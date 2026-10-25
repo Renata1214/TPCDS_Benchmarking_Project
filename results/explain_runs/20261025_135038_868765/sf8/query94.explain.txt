@@ -1,0 +1,157 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌─────────────────┐
+│      TOP_N      │
+│    ──────────   │
+│     Top: 100    │
+│                 │
+│    Order By:    │
+│  count(DISTINCT │
+│ ws1.ws_order_num│
+│     ber) ASC    │
+└────────┬────────┘
+┌────────┴────────┐
+│UNGROUPED_AG...  │
+│    ──────────   │
+│   Aggregates:   │
+│ count(DISTINCT  │
+│       #0)       │
+│     sum(#1)     │
+│     sum(#2)     │
+└────────┬────────┘
+┌────────┴────────┐
+│    PROJECTION   │
+│    ──────────   │
+│ ws_order_number │
+│ ws_ext_ship_cost│
+│  ws_net_profit  │
+│                 │
+│    ~208 rows    │
+└────────┬────────┘
+┌────────┴────────┐
+│ RIGHT_DELIM_JOIN│
+│    ──────────   │
+│    Join Type:   │
+│    RIGHT_ANTI   │
+│                 │
+│   Conditions:   │
+│ ws_order_number ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────┐
+│  IS NOT DISTINCT│                                                                                                                                              │                                                        │
+│ FROM ws_order_nu│                                                                                                                                              │                                                        │
+│       mber      │                                                                                                                                              │                                                        │
+│                 │                                                                                                                                              │                                                        │
+│    ~208 rows    │                                                                                                                                              │                                                        │
+└────────┬────────┘                                                                                                                                              │                                                        │
+┌────────┴────────┐                                                                                                                                     ┌────────┴────────┐                                      ┌────────┴────────┐
+│ RIGHT_DELIM_JOIN│                                                                                                                                     │    HASH_JOIN    │                                      │  HASH_GROUP_BY  │
+│    ──────────   │                                                                                                                                     │    ──────────   │                                      │    ──────────   │
+│    Join Type:   │                                                                                                                                     │    Join Type:   │                                      │    Groups: #0   │
+│    RIGHT_SEMI   │                                                                                                                                     │    RIGHT_ANTI   │                                      │                 │
+│                 │                                                                                                                                     │                 │                                      │                 │
+│   Conditions:   │                                                                                                                                     │   Conditions:   │                                      │                 │
+│ ws_warehouse_sk │                                                                                                                                     │ ws_order_number │                                      │                 │
+│  IS NOT DISTINCT│                                                                                                                                     │  IS NOT DISTINCT│                                      │                 │
+│ FROM ws_warehous├──────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────┐         │ FROM ws_order_nu├────────────────────────────┐         │                 │
+│       e_sk      │                                                                  │                                                        │         │       mber      │                            │         │                 │
+│ ws_order_number │                                                                  │                                                        │         │                 │                            │         │                 │
+│  IS NOT DISTINCT│                                                                  │                                                        │         │                 │                            │         │                 │
+│ FROM ws_order_nu│                                                                  │                                                        │         │                 │                            │         │                 │
+│       mber      │                                                                  │                                                        │         │                 │                            │         │                 │
+│                 │                                                                  │                                                        │         │                 │                            │         │                 │
+│   ~1,040 rows   │                                                                  │                                                        │         │    ~208 rows    │                            │         │   ~1,036 rows   │
+└────────┬────────┘                                                                  │                                                        │         └────────┬────────┘                            │         └─────────────────┘
+┌────────┴────────┐                                                         ┌────────┴────────┐                                      ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐
+│    HASH_JOIN    │                                                         │    HASH_JOIN    │                                      │  HASH_GROUP_BY  ││    PROJECTION   │                   │    DUMMY_SCAN   │
+│    ──────────   │                                                         │    ──────────   │                                      │    ──────────   ││    ──────────   │                   │                 │
+│    Join Type:   │                                                         │    Join Type:   │                                      │     Groups:     ││ ws_order_number │                   │                 │
+│      INNER      │                                                         │    RIGHT_SEMI   │                                      │        #1       ││                 │                   │                 │
+│                 │                                                         │                 │                                      │        #0       ││                 │                   │                 │
+│   Conditions:   │                                                         │   Conditions:   │                                      │                 ││                 │                   │                 │
+│ ws_ship_date_sk │                                                         │ ws_warehouse_sk │                                      │                 ││                 │                   │                 │
+│   = d_date_sk   │                                                         │  IS NOT DISTINCT│                                      │                 ││                 │                   │                 │
+│                 ├───────────────────────────────────────────────┐         │ FROM ws_warehous├────────────────────────────┐         │                 ││                 │                   │                 │
+│                 │                                               │         │       e_sk      │                            │         │                 ││                 │                   │                 │
+│                 │                                               │         │ ws_order_number │                            │         │                 ││                 │                   │                 │
+│                 │                                               │         │  IS NOT DISTINCT│                            │         │                 ││                 │                   │                 │
+│                 │                                               │         │ FROM ws_order_nu│                            │         │                 ││                 │                   │                 │
+│                 │                                               │         │       mber      │                            │         │                 ││                 │                   │                 │
+│                 │                                               │         │                 │                            │         │                 ││                 │                   │                 │
+│   ~5,200 rows   │                                               │         │   ~1,040 rows   │                            │         │   ~5,190 rows   ││   ~3,108 rows   │                   │                 │
+└────────┬────────┘                                               │         └────────┬────────┘                            │         └─────────────────┘└────────┬────────┘                   └─────────────────┘
+┌────────┴────────┐                                      ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐                   ┌────────┴────────┐
+│    HASH_JOIN    │                                      │      FILTER     ││    PROJECTION   │                   │    DUMMY_SCAN   │                   │    HASH_JOIN    │
+│    ──────────   │                                      │    ──────────   ││    ──────────   │                   │                 │                   │    ──────────   │
+│    Join Type:   │                                      │    (d_date_sk   ││ ws_warehouse_sk │                   │                 │                   │    Join Type:   │
+│      INNER      │                                      │  BETWEEN 2450817││ ws_order_number │                   │                 │                   │      INNER      │
+│                 │                                      │   AND 2452762)  ││                 │                   │                 │                   │                 │
+│   Conditions:   ├────────────────────────────┐         │                 ││                 │                   │                 │                   │   Conditions:   ├─────────┐
+│ ws_web_site_sk =│                            │         │                 ││                 │                   │                 │                   │ wr_order_number │         │
+│    web_site_sk  │                            │         │                 ││                 │                   │                 │                   │= ws_order_number│         │
+│                 │                            │         │                 ││                 │                   │                 │                   │                 │         │
+│   ~18,895 rows  │                            │         │   ~14,609 rows  ││   ~86,609 rows  │                   │                 │                   │   ~3,108 rows   │         │
+└────────┬────────┘                            │         └────────┬────────┘└────────┬────────┘                   └─────────────────┘                   └────────┬────────┘         │
+┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐┌────────┴────────┐                                                         ┌────────┴────────┐┌────────┴────────┐
+│    HASH_JOIN    │                   │    SEQ_SCAN     ││    SEQ_SCAN     ││    HASH_JOIN    │                                                         │    SEQ_SCAN     ││    DELIM_SCAN   │
+│    ──────────   │                   │    ──────────   ││    ──────────   ││    ──────────   │                                                         │    ──────────   ││    ──────────   │
+│    Join Type:   │                   │      Table:     ││      Table:     ││    Join Type:   │                                                         │      Table:     ││   Delim Index:  │
+│      INNER      │                   │     web_site    ││     date_dim    ││      INNER      │                                                         │   web_returns   ││        2        │
+│                 │                   │                 ││                 ││                 │                                                         │                 ││                 │
+│   Conditions:   │                   │      Type:      ││      Type:      ││   Conditions:   │                                                         │      Type:      ││                 │
+│ ws_ship_addr_sk │                   │ Sequential Scan ││ Sequential Scan ││ ws_order_number │                                                         │ Sequential Scan ││                 │
+│ = ca_address_sk │                   │                 ││                 ││= ws_order_number│                                                         │                 ││                 │
+│                 │                   │   Projections:  ││   Projections:  ││ ws_warehouse_sk │                                                         │   Projections:  ││                 │
+│                 │                   │   web_site_sk   ││    d_date_sk    ││!= ws_warehouse_s│                                                         │ wr_order_number ││                 │
+│                 │                   │                 ││                 ││        k        │                                                         │                 ││                 │
+│                 ├─────────┐         │     Filters:    ││     Filters:    ││                 ├─────────┐                                               │                 ││                 │
+│                 │         │         │ web_company_name││ (CAST(d_date AS ││                 │         │                                               │                 ││                 │
+│                 │         │         │      ='pri'     ││    TIMESTAMP)   ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││   BETWEEN '1999 ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││ -05-01 00:00:00'││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││ ::TIMESTAMP AND ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││  '1999-06-30 00 ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││     :00:00':    ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││   :TIMESTAMP)   ││                 │         │                                               │                 ││                 │
+│                 │         │         │                 ││                 ││                 │         │                                               │                 ││                 │
+│  ~105,272 rows  │         │         │     ~7 rows     ││   ~14,609 rows  ││   ~86,609 rows  │         │                                               │  ~575,522 rows  ││   ~1,036 rows   │
+└────────┬────────┘         │         └─────────────────┘└─────────────────┘└────────┬────────┘         │                                               └─────────────────┘└─────────────────┘
+┌────────┴────────┐┌────────┴────────┐                                      ┌────────┴────────┐┌────────┴────────┐
+│    SEQ_SCAN     ││      FILTER     │                                      │    SEQ_SCAN     ││    DELIM_SCAN   │
+│    ──────────   ││    ──────────   │                                      │    ──────────   ││    ──────────   │
+│      Table:     ││ (ca_address_sk <│                                      │      Table:     ││   Delim Index:  │
+│    web_sales    ││    = 204999)    │                                      │    web_sales    ││        1        │
+│                 ││                 │                                      │                 ││                 │
+│      Type:      ││                 │                                      │      Type:      ││                 │
+│ Sequential Scan ││                 │                                      │ Sequential Scan ││                 │
+│                 ││                 │                                      │                 ││                 │
+│   Projections:  ││                 │                                      │   Projections:  ││                 │
+│ ws_ship_date_sk ││                 │                                      │ ws_order_number ││                 │
+│ ws_ship_addr_sk ││                 │                                      │ ws_warehouse_sk ││                 │
+│  ws_web_site_sk ││                 │                                      │                 ││                 │
+│ ws_order_number ││                 │                                      │                 ││                 │
+│ ws_warehouse_sk ││                 │                                      │                 ││                 │
+│ ws_ext_ship_cost││                 │                                      │                 ││                 │
+│  ws_net_profit  ││                 │                                      │                 ││                 │
+│                 ││                 │                                      │                 ││                 │
+│ ~5,757,840 rows ││   ~3,728 rows   │                                      │ ~5,757,840 rows ││   ~5,190 rows   │
+└─────────────────┘└────────┬────────┘                                      └─────────────────┘└─────────────────┘
+                   ┌────────┴────────┐
+                   │    SEQ_SCAN     │
+                   │    ──────────   │
+                   │      Table:     │
+                   │ customer_address│
+                   │                 │
+                   │      Type:      │
+                   │ Sequential Scan │
+                   │                 │
+                   │   Projections:  │
+                   │  ca_address_sk  │
+                   │                 │
+                   │     Filters:    │
+                   │  ca_state='TX'  │
+                   │                 │
+                   │   ~3,728 rows   │
+                   └─────────────────┘

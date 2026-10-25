@@ -1,0 +1,221 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select       sum(ss_net_profit)/sum(ss_ext_sales_price) as gross_margin    ,i_category    ,i_class    ,grouping(i_category)+grouping(i_class) as lochierarchy    ,rank() over (  	partition by grouping(i_category)+grouping(i_class),  	case when grouping(i_class) = 0 then i_category end   	order by sum(ss_net_profit)/sum(ss_ext_sales_price) asc) as rank_within_parent  from     store_sales    ,date_dim       d1    ,item    ,store  where     d1.d_year = 2000   and d1.d_date_sk = ss_sold_date_sk  and i_item_sk  = ss_item_sk   and s_store_sk  = ss_store_sk  and s_state in ('TN','TN','TN','TN',                  'TN','TN','TN','TN')  group by rollup(i_category,i_class)  order by    lochierarchy desc   ,case when lochierarchy = 0 then i_category end   ,rank_within_parent   limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.122s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│    .item.i_class)) DESC   │
+│           #5 ASC          │
+│ rank() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│   .item.i_class)), CASE   │
+│  WHEN ((GROUPING(tpcds_sf1│
+│ .main.item.i_class) = 0)) │
+│  THEN (tpcds_sf1.main.item│
+│ .i_category) ELSE NULL END│
+│   ORDER BY (sum(tpcds_sf1 │
+│     .main.store_sales     │
+│   .ss_net_profit) / sum   │
+│      (tpcds_sf1.main      │
+│.store_sales.ss_ext_sales_p│
+│      rice)) ASC) ASC      │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        gross_margin       │
+│         i_category        │
+│          i_class          │
+│        lochierarchy       │
+│     rank_within_parent    │
+│   CASE  WHEN (((GROUPING  │
+│    (tpcds_sf1.main.item   │
+│  .i_category) + GROUPING  │
+│    (tpcds_sf1.main.item   │
+│   .i_class)) = 0)) THEN   │
+│ (i_category) ELSE NULL END│
+│                           │
+│          136 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│            #10            │
+│            #11            │
+│                           │
+│          136 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│ RANK() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│   .item.i_class)), CASE   │
+│  WHEN ((GROUPING(tpcds_sf1│
+│ .main.item.i_class) = 0)) │
+│   THEN (i_category) ELSE  │
+│   NULL END ORDER BY (CAST │
+│   (sum(ss_net_profit) AS  │
+│     DOUBLE) / CAST(sum    │
+│  (ss_ext_sales_price) AS  │
+│  DOUBLE)) ASC NULLS LAST) │
+│                           │
+│          136 rows         │
+│          (0.02s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│        Aggregates:        │
+│          sum(#2)          │
+│          sum(#3)          │
+│                           │
+│          136 rows         │
+│          (0.06s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_class          │
+│       ss_net_profit       │
+│     ss_ext_sales_price    │
+│                           │
+│        540,754 rows       │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│   i_item_sk = ss_item_sk  │              │
+│                           │              │
+│        540,754 rows       │              │
+│          (0.06s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│        Table: item        ││      Join Type: INNER     │
+│   Type: Sequential Scan   ││                           │
+│                           ││        Conditions:        ├───────────────────────────────────────────┐
+│                           ││  ss_store_sk = s_store_sk │                                           │
+│                           ││                           │                                           │
+│        17,999 rows        ││        540,754 rows       │                                           │
+│          (0.00s)          ││          (0.00s)          │                                           │
+└───────────────────────────┘└─────────────┬─────────────┘                                           │
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                             │           FILTER          │
+                             │    ────────────────────   │                             │    ────────────────────   │
+                             │      Join Type: INNER     │                             │     (s_store_sk <= 10)    │
+                             │                           │                             │                           │
+                             │        Conditions:        ├──────────────┐              │                           │
+                             │ss_sold_date_sk = d_date_sk│              │              │                           │
+                             │                           │              │              │                           │
+                             │        540,754 rows       │              │              │          10 rows          │
+                             │          (0.01s)          │              │              │          (0.00s)          │
+                             └─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││         PROJECTION        ││         PROJECTION        │
+                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                             │     Table: store_sales    ││             #1            ││             #0            │
+                             │   Type: Sequential Scan   ││                           ││                           │
+                             │                           ││                           ││                           │
+                             │        540,754 rows       ││          366 rows         ││          12 rows          │
+                             │          (0.05s)          ││          (0.00s)          ││          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │           FILTER          ││           FILTER          │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │ (d_date_sk BETWEEN 2450816││          IN (...)         │
+                                                          │        AND 2452642)       ││                           │
+                                                          │                           ││                           │
+                                                          │          366 rows         ││          12 rows          │
+                                                          │          (0.00s)          ││          (0.00s)          │
+                                                          └─────────────┬─────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        ││         HASH_JOIN         │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │      Table: date_dim      ││      Join Type: MARK      │
+                                                          │   Type: Sequential Scan   ││                           │
+                                                          │    Filters: d_year=2000   ││        Conditions:        ├──────────────┐
+                                                          │                           ││        s_state = #0       │              │
+                                                          │                           ││                           │              │
+                                                          │          366 rows         ││          12 rows          │              │
+                                                          │          (0.00s)          ││          (0.00s)          │              │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘              │
+                                                                                       ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                       │         TABLE_SCAN        ││      COLUMN_DATA_SCAN     │
+                                                                                       │    ────────────────────   ││                           │
+                                                                                       │        Table: store       ││                           │
+                                                                                       │   Type: Sequential Scan   ││                           │
+                                                                                       │                           ││                           │
+                                                                                       │          Filters:         ││                           │
+                                                                                       │ optional: s_state IN ('TN'││                           │
+                                                                                       │ , 'TN', 'TN', 'TN', 'TN', ││                           │
+                                                                                       │     'TN', 'TN', 'TN')     ││                           │
+                                                                                       │                           ││                           │
+                                                                                       │          12 rows          ││           8 rows          │
+                                                                                       │          (0.00s)          ││          (0.00s)          │
+                                                                                       └───────────────────────────┘└───────────────────────────┘

@@ -1,0 +1,111 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  tpcds_sf4.main.customer  │
+│     .c_customer_id ASC    │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        customer_id        │
+│        customername       │
+│                           │
+│          ~63 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│        cd_demo_sk =       │              │
+│     c_current_cdemo_sk    │              │
+│                           │              │
+│          ~63 rows         │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│           Table:          ││      Join Type: INNER     │
+│   customer_demographics   ││                           │
+│                           ││        Conditions:        │
+│   Type: Sequential Scan   ││       sr_cdemo_sk =       │
+│                           ││     c_current_cdemo_sk    │
+│        Projections:       ││                           ├──────────────┐
+│         cd_demo_sk        ││                           │              │
+│                           ││                           │              │
+│          Filters:         ││                           │              │
+│     cd_demo_sk>=4 AND     ││                           │              │
+│     cd_demo_sk<=1920791   ││                           │              │
+│                           ││                           │              │
+│      ~1,920,800 rows      ││          ~63 rows         │              │
+└───────────────────────────┘└─────────────┬─────────────┘              │
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         HASH_JOIN         │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │    Table: store_returns   ││      Join Type: INNER     │
+                             │   Type: Sequential Scan   ││                           │
+                             │                           ││        Conditions:        │
+                             │        Projections:       ││    hd_income_band_sk =    │
+                             │        sr_cdemo_sk        ││      ib_income_band_sk    ├────────────────────────────────────────────────────────────────────────┐
+                             │                           ││                           │                                                                        │
+                             │          Filters:         ││                           │                                                                        │
+                             │     sr_cdemo_sk>=4 AND    ││                           │                                                                        │
+                             │    sr_cdemo_sk<=1920791   ││                           │                                                                        │
+                             │                           ││                           │                                                                        │
+                             │      ~1,149,565 rows      ││         ~106 rows         │                                                                        │
+                             └───────────────────────────┘└─────────────┬─────────────┘                                                                        │
+                                                          ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+                                                          │    ────────────────────   │                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │                                                          │     Table: income_band    │
+                                                          │                           │                                                          │   Type: Sequential Scan   │
+                                                          │        Conditions:        │                                                          │                           │
+                                                          │        hd_demo_sk =       │                                                          │        Projections:       │
+                                                          │     c_current_hdemo_sk    ├──────────────┐                                           │     ib_income_band_sk     │
+                                                          │                           │              │                                           │                           │
+                                                          │                           │              │                                           │          Filters:         │
+                                                          │                           │              │                                           │   ib_lower_bound>=32287   │
+                                                          │                           │              │                                           │   ib_upper_bound<=82287   │
+                                                          │                           │              │                                           │                           │
+                                                          │         ~561 rows         │              │                                           │          ~4 rows          │
+                                                          └─────────────┬─────────────┘              │                                           └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         SEQ_SCAN          ││         HASH_JOIN         │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │           Table:          ││      Join Type: INNER     │
+                                                          │   household_demographics  ││                           │
+                                                          │                           ││        Conditions:        │
+                                                          │   Type: Sequential Scan   ││    c_current_addr_sk =    │
+                                                          │                           ││        ca_address_sk      ├──────────────┐
+                                                          │        Projections:       ││                           │              │
+                                                          │     hd_income_band_sk     ││                           │              │
+                                                          │         hd_demo_sk        ││                           │              │
+                                                          │                           ││                           │              │
+                                                          │        ~7,200 rows        ││         ~561 rows         │              │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘              │
+                                                                                       ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                       │         SEQ_SCAN          ││         SEQ_SCAN          │
+                                                                                       │    ────────────────────   ││    ────────────────────   │
+                                                                                       │      Table: customer      ││           Table:          │
+                                                                                       │   Type: Sequential Scan   ││      customer_address     │
+                                                                                       │                           ││                           │
+                                                                                       │        Projections:       ││   Type: Sequential Scan   │
+                                                                                       │     c_current_addr_sk     ││                           │
+                                                                                       │     c_current_cdemo_sk    ││        Projections:       │
+                                                                                       │     c_current_hdemo_sk    ││       ca_address_sk       │
+                                                                                       │       c_customer_id       ││                           │
+                                                                                       │        c_last_name        ││          Filters:         │
+                                                                                       │        c_first_name       ││     ca_city='Hopewell'    │
+                                                                                       │                           ││                           │
+                                                                                       │       ~233,000 rows       ││         ~283 rows         │
+                                                                                       └───────────────────────────┘└───────────────────────────┘

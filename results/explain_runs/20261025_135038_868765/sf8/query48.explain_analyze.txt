@@ -1,0 +1,198 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select sum (ss_quantity)  from store_sales, store, customer_demographics, customer_address, date_dim  where s_store_sk = ss_store_sk  and  ss_sold_date_sk = d_date_sk and d_year = 1998  and    (   (    cd_demo_sk = ss_cdemo_sk    and     cd_marital_status = 'M'    and     cd_education_status = '4 yr Degree'    and     ss_sales_price between 100.00 and 150.00      )  or   (   cd_demo_sk = ss_cdemo_sk    and     cd_marital_status = 'D'    and     cd_education_status = 'Primary'    and     ss_sales_price between 50.00 and 100.00      )  or   (   cd_demo_sk = ss_cdemo_sk   and     cd_marital_status = 'U'    and     cd_education_status = 'Advanced Degree'    and     ss_sales_price between 150.00 and 200.00    )  )  and  (   (   ss_addr_sk = ca_address_sk   and   ca_country = 'United States'   and   ca_state in ('KY', 'GA', 'NM')   and ss_net_profit between 0 and 2000     )  or   (ss_addr_sk = ca_address_sk   and   ca_country = 'United States'   and   ca_state in ('MT', 'OR', 'IN')   and ss_net_profit between 150 and 3000    )  or   (ss_addr_sk = ca_address_sk   and   ca_country = 'United States'   and   ca_state in ('WI', 'MO', 'WV')   and ss_net_profit between 50 and 25000    )  ) ;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.171s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│    UNGROUPED_AGGREGATE    │
+│    ────────────────────   │
+│    Aggregates: sum(#0)    │
+│                           │
+│           1 row           │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        ss_quantity        │
+│                           │
+│         3,569 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ss_store_sk = s_store_sk │                                                                                                     │
+│                           │                                                                                                     │
+│         3,569 rows        │                                                                                                     │
+│          (0.00s)          │                                                                                                     │
+└─────────────┬─────────────┘                                                                                                     │
+┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│         PROJECTION        │                                                                                       │         TABLE_SCAN        │
+│    ────────────────────   │                                                                                       │    ────────────────────   │
+│             #2            │                                                                                       │        Table: store       │
+│             #4            │                                                                                       │   Type: Sequential Scan   │
+│                           │                                                                                       │                           │
+│                           │                                                                                       │        Projections:       │
+│                           │                                                                                       │         s_store_sk        │
+│                           │                                                                                       │                           │
+│         3,572 rows        │                                                                                       │          82 rows          │
+│          (0.00s)          │                                                                                       │          (0.00s)          │
+└─────────────┬─────────────┘                                                                                       └───────────────────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│ ((((ss_sales_price >= 100 │
+│ .00) AND (ss_sales_price <│
+│      = 150.00)) AND       │
+│ (cd_marital_status = 'M') │
+│  AND (cd_education_status │
+│  = '4 yr Degree')) OR ((  │
+│ (ss_sales_price >= 50.00) │
+│   AND (ss_sales_price <=  │
+│        100.00)) AND       │
+│ (cd_marital_status = 'D') │
+│  AND (cd_education_status │
+│     = 'Primary')) OR (    │
+│ (cd_marital_status = 'U') │
+│  AND (cd_education_status │
+│ = 'Advanced Degree') AND (│
+│ (ss_sales_price >= 150.00)│
+│  AND constant_or_null(true│
+│ , ss_sales_price, 200.00))│
+│             ))            │
+│                           │
+│         3,572 rows        │
+│          (0.04s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│  cd_demo_sk = ss_cdemo_sk │              │
+│                           │              │
+│        194,868 rows       │              │
+│          (0.08s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│           Table:          ││             #0            │
+│   customer_demographics   ││             #1            │
+│                           ││             #2            │
+│   Type: Sequential Scan   ││             #4            │
+│                           ││                           │
+│        Projections:       ││                           │
+│         cd_demo_sk        ││                           │
+│     cd_marital_status     ││                           │
+│    cd_education_status    ││                           │
+│                           ││                           │
+│       1,920,770 rows      ││        196,054 rows       │
+│          (0.01s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ ((((ss_net_profit >= 0.00)│
+                             │    AND (ss_net_profit <=  │
+                             │  2000.00)) AND ((ca_state │
+                             │ = 'KY') OR (ca_state = 'GA│
+                             │ ') OR (ca_state = 'NM'))) │
+                             │   OR (((ss_net_profit >=  │
+                             │        150.00) AND        │
+                             │ (ss_net_profit <= 3000.00)│
+                             │  ) AND ((ca_state = 'MT') │
+                             │  OR (ca_state = 'OR') OR  │
+                             │ (ca_state = 'IN'))) OR (( │
+                             │   (ca_state = 'WI') OR    │
+                             │   (ca_state = 'MO') OR    │
+                             │  (ca_state = 'WV')) AND ( │
+                             │  (ss_net_profit >= 50.00) │
+                             │  AND constant_or_null(true│
+                             │ , ss_net_profit, 25000.00)│
+                             │            )))            │
+                             │                           │
+                             │        196,054 rows       │
+                             │          (0.67s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │
+                             │    ────────────────────   │
+                             │      Join Type: INNER     │
+                             │                           │
+                             │        Conditions:        ├───────────────────────────────────────────┐
+                             │ ss_addr_sk = ca_address_sk│                                           │
+                             │                           │                                           │
+                             │       4,122,642 rows      │                                           │
+                             │          (0.10s)          │                                           │
+                             └─────────────┬─────────────┘                                           │
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                             │         TABLE_SCAN        │
+                             │    ────────────────────   │                             │    ────────────────────   │
+                             │      Join Type: INNER     │                             │           Table:          │
+                             │                           │                             │      customer_address     │
+                             │        Conditions:        │                             │                           │
+                             │ss_sold_date_sk = d_date_sk│                             │   Type: Sequential Scan   │
+                             │                           │                             │                           │
+                             │                           │                             │        Projections:       │
+                             │                           ├──────────────┐              │       ca_address_sk       │
+                             │                           │              │              │          ca_state         │
+                             │                           │              │              │                           │
+                             │                           │              │              │          Filters:         │
+                             │                           │              │              │ ca_country='United States'│
+                             │                           │              │              │                           │
+                             │       4,252,928 rows      │              │              │        198,709 rows       │
+                             │          (0.09s)          │              │              │          (0.01s)          │
+                             └─────────────┬─────────────┘              │              └───────────────────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││           FILTER          │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │     Table: store_sales    ││ (d_date_sk BETWEEN 2450816│
+                             │   Type: Sequential Scan   ││        AND 2452642)       │
+                             │                           ││                           │
+                             │        Projections:       ││                           │
+                             │        ss_store_sk        ││                           │
+                             │      ss_sold_date_sk      ││                           │
+                             │        ss_cdemo_sk        ││                           │
+                             │       ss_sales_price      ││                           │
+                             │         ss_addr_sk        ││                           │
+                             │       ss_net_profit       ││                           │
+                             │        ss_quantity        ││                           │
+                             │                           ││                           │
+                             │       4,252,928 rows      ││          364 rows         │
+                             │          (0.57s)          ││          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        │
+                                                          │    ────────────────────   │
+                                                          │      Table: date_dim      │
+                                                          │   Type: Sequential Scan   │
+                                                          │                           │
+                                                          │        Projections:       │
+                                                          │         d_date_sk         │
+                                                          │                           │
+                                                          │    Filters: d_year=1998   │
+                                                          │                           │
+                                                          │          365 rows         │
+                                                          │          (0.00s)          │
+                                                          └───────────────────────────┘

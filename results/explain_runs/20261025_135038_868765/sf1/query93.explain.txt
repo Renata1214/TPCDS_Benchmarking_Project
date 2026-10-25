@@ -1,0 +1,79 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│    sum(t.act_sales) ASC   │
+│    t.ss_customer_sk ASC   │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│         Groups: #0        │
+│    Aggregates: sum(#1)    │
+│                           │
+│          ~62 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       ss_customer_sk      │
+│         act_sales         │
+│                           │
+│          ~63 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       ss_customer_sk      │
+│         act_sales         │
+│                           │
+│          ~63 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├───────────────────────────────────────────┐
+│ sr_reason_sk = r_reason_sk│                                           │
+│                           │                                           │
+│          ~63 rows         │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         SEQ_SCAN          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: LEFT      │                             │       Table: reason       │
+│                           │                             │   Type: Sequential Scan   │
+│        Conditions:        │                             │                           │
+│  ss_item_sk = sr_item_sk  │                             │        Projections:       │
+│     ss_ticket_number =    ├──────────────┐              │        r_reason_sk        │
+│      sr_ticket_number     │              │              │                           │
+│                           │              │              │          Filters:         │
+│                           │              │              │   r_reason_desc='Did not  │
+│                           │              │              │     like the warranty'    │
+│                           │              │              │                           │
+│      ~2,880,404 rows      │              │              │           ~1 row          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││    Table: store_returns   │
+│   Type: Sequential Scan   ││   Type: Sequential Scan   │
+│                           ││                           │
+│        Projections:       ││        Projections:       │
+│         ss_item_sk        ││         sr_item_sk        │
+│      ss_ticket_number     ││      sr_ticket_number     │
+│       ss_customer_sk      ││        sr_reason_sk       │
+│        ss_quantity        ││     sr_return_quantity    │
+│       ss_sales_price      ││                           │
+│                           ││                           │
+│      ~2,880,404 rows      ││       ~287,514 rows       │
+└───────────────────────────┘└───────────────────────────┘

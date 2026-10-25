@@ -1,0 +1,159 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│                           │
+│         ~100 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│    .item.i_class)) DESC   │
+│           #5 ASC          │
+│ rank() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│   .item.i_class)), CASE   │
+│  WHEN ((GROUPING(tpcds_sf1│
+│ .main.item.i_class) = 0)) │
+│  THEN (tpcds_sf1.main.item│
+│ .i_category) ELSE NULL END│
+│   ORDER BY sum(tpcds_sf1  │
+│      .main.web_sales      │
+│  .ws_net_paid) DESC) ASC  │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         total_sum         │
+│         i_category        │
+│          i_class          │
+│        lochierarchy       │
+│     rank_within_parent    │
+│   CASE  WHEN (((GROUPING  │
+│    (tpcds_sf1.main.item   │
+│  .i_category) + GROUPING  │
+│    (tpcds_sf1.main.item   │
+│   .i_class)) = 0)) THEN   │
+│ (i_category) ELSE NULL END│
+│                           │
+│       ~210,623 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│            #10            │
+│                           │
+│       ~210,623 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│ RANK() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf1.main │
+│    .item.i_category) +    │
+│   GROUPING(tpcds_sf1.main │
+│   .item.i_class)), CASE   │
+│  WHEN ((GROUPING(tpcds_sf1│
+│ .main.item.i_class) = 0)) │
+│   THEN (i_category) ELSE  │
+│    NULL END ORDER BY sum  │
+│  (ws_net_paid) DESC NULLS │
+│            LAST)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│    Aggregates: sum(#2)    │
+│                           │
+│       ~210,623 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_class          │
+│        ws_net_paid        │
+│                           │
+│       ~210,627 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├───────────────────────────────────────────┐
+│   ws_item_sk = i_item_sk  │                                           │
+│                           │                                           │
+│       ~210,627 rows       │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         SEQ_SCAN          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │        Table: item        │
+│                           │                             │   Type: Sequential Scan   │
+│        Conditions:        ├──────────────┐              │                           │
+│ws_sold_date_sk = d_date_sk│              │              │                           │
+│                           │              │              │                           │
+│       ~197,989 rows       │              │              │        ~18,000 rows       │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│      Table: web_sales     ││             #1            │
+│   Type: Sequential Scan   ││                           │
+│                           ││                           │
+│       ~719,384 rows       ││        ~14,609 rows       │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ (d_date_sk BETWEEN 2450816│
+                             │        AND 2452642)       │
+                             │                           │
+                             │        ~14,609 rows       │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          │
+                             │    ────────────────────   │
+                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │          Filters:         │
+                             │   d_month_seq>=1212 AND   │
+                             │      d_month_seq<=1223    │
+                             │                           │
+                             │        ~14,609 rows       │
+                             └───────────────────────────┘
