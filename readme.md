@@ -231,3 +231,6 @@ DELETE
 Command to see all plots in terminal
 cd /mnt/c/Users/Regina/TPCDS
 explorer.exe "$(wslpath -w results/benchmark_runs/20261023_164300_814393/plots/index.html)"
+## Query optimizations: Q8, Q11, Q64 and Q67
+
+See [the optimization notes](optimizations/q8_q11_q64_q67/README.md) for the template rewrites, original and optimized SQL snapshots, correctness checks, local speedups and reproduction commands.
