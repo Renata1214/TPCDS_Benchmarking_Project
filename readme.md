@@ -79,6 +79,16 @@ REFERENCE_SCALE_GB=10 REPEATS=3 bash scripts/run_tpcds.sh 0.1 0.2 0.5
 
 This command requires WSL prerequisites described below, including DuckDB CLI and the Linux TPC-DS generator tools. It uses existing generated query SQL when complete; set `REGENERATE_QUERIES=1` to explicitly recreate the SQL files.
 
+The Query 22, 47, and 74 templates in `Kit/DSGen-software-code-4.0.0/query_templates/` contain the project’s experimental rewrites. Query 74 uses the cVariant join order; the query generator adds its `disabled_optimizers` setup and reset around generated Query 74 SQL. These modified templates produce a custom experimental workload, not the unmodified official TPC-DS query workload.
+
+To refresh only the generated Query 22, 47, and 74 SQL files without deleting or regenerating the other queries, run:
+
+```bash
+bash scripts/01_update_experiment_queries.sh
+```
+
+By default, this updates SF1, SF2, SF4, SF8, and their SF1 `queries/all_templates/` copies. Pass scale sizes to update only selected scales, for example `bash scripts/01_update_experiment_queries.sh 1 4`.
+
 ### Prerequisites
 
 - Run these commands from the WSL terminal.

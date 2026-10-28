@@ -1,17 +1,19 @@
+SET disabled_optimizers = 'join_order';
+
 
 with year_total as (
- select c_customer_id customer_id
-       ,c_first_name customer_first_name
+  select c_customer_id customer_id
+        ,c_first_name customer_first_name
        ,c_last_name customer_last_name
        ,d_year as year
        ,max(ss_net_paid) year_total
        ,'s' sale_type
- from customer
-     ,store_sales
-     ,date_dim
- where c_customer_sk = ss_customer_sk
-   and ss_sold_date_sk = d_date_sk
-   and d_year in (2001,2001+1)
+ from store_sales ss
+ join date_dim d
+   on ss.ss_sold_date_sk = d.d_date_sk
+ join customer c
+   on ss.ss_customer_sk = c.c_customer_sk
+ where d.d_year in (2001,2001+1)
  group by c_customer_id
          ,c_first_name
          ,c_last_name
@@ -23,12 +25,12 @@ with year_total as (
        ,d_year as year
        ,max(ws_net_paid) year_total
        ,'w' sale_type
- from customer
-     ,web_sales
-     ,date_dim
- where c_customer_sk = ws_bill_customer_sk
-   and ws_sold_date_sk = d_date_sk
-   and d_year in (2001,2001+1)
+ from web_sales ws
+ join date_dim d
+   on ws.ws_sold_date_sk = d.d_date_sk
+ join customer c
+   on ws.ws_bill_customer_sk = c.c_customer_sk
+ where d.d_year in (2001,2001+1)
  group by c_customer_id
          ,c_first_name
          ,c_last_name
@@ -59,3 +61,5 @@ with year_total as (
 limit 100;
 
 
+
+SET disabled_optimizers = '';
