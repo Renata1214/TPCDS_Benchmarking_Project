@@ -1,9 +1,9 @@
 # TPC-DS Benchmark Report — DuckDB
 
-**Project:** Data Warehouses (INFO-H-419), ULB  
-**Prepared by:** Helin Mazi  
-**Report date:** 28 October 2026  
-**Engine:** DuckDB 1.4.3 (Andium)  
+**Project:** Data Warehouses (INFO-H-419), ULB
+**Prepared by:** Helin Mazi
+**Report date:** 28 October 2026
+**Engine:** DuckDB 1.4.3 (Andium)
 **Benchmark platform:** Linux container, 18 reported CPUs
 
 ## 1. Objective
