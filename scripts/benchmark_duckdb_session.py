@@ -352,7 +352,9 @@ def main():
                 f"Factors: {' '.join(args.factors)}",
                 f"Repeats per query: {args.repeats}",
                 f"Warmup runs per query: {args.warmup_runs}",
-                "Warmup and measured executions share one DuckDB process per scale.",
+                "Execution order: complete warmup passes, then complete measured passes; queries are in ascending order.",
+                "After a session restart, queries are warmed in the restarted session before measurement.",
+                "Warmup and measured executions share one DuckDB process per scale unless it must be restarted.",
                 f"Timeout per execution: {args.timeout_seconds} seconds",
                 f"DuckDB: {duckdb_version}",
                 f"Platform: {sys.platform}",
@@ -403,113 +405,186 @@ def main():
             scale_log_dir = log_root / tag
             scale_log_dir.mkdir()
             database_bytes = database.stat().st_size
-            print(f"Benchmarking factor {factor} ({scale_gb} GB, {tag}) with one persistent DuckDB process")
+            print(
+                f"Benchmarking factor {factor} ({scale_gb} GB, {tag}) "
+                "with one persistent DuckDB process"
+            )
             session = None
+            query_runs = [
+                (
+                    query_file,
+                    query_file.stem,
+                    query_file.read_text(encoding="utf-8"),
+                    scale_log_dir / f"{query_file.stem}.log",
+                )
+                for query_file in query_files
+            ]
+            warmup_failures = set()
+            warmed_queries = set()
+
+            def warm_query(query_run, warmup_number, phase):
+                nonlocal session, warmed_queries
+                query_file, query, query_sql, log_path = query_run
+                try:
+                    if session is None:
+                        warmed_queries.clear()
+                        session = DuckDBSession(
+                            args.duckdb_bin, database, args.timeout_seconds
+                        )
+                    result = session.execute(query_sql)
+                    if result["status"] != "WORKING":
+                        result["error_summary"] = (
+                            f"{phase} warmup {warmup_number} failed: "
+                            f"{result['error_summary']}"
+                        )
+                        write_metric(
+                            writer, run_id, factor, scale_gb, query, 0, result,
+                            database_bytes, query_file, log_path
+                        )
+                        metrics_file.flush()
+                        print(
+                            f"  {tag} {query} {phase} warmup "
+                            f"{warmup_number}: FAILED"
+                        )
+                        return False
+                    warmed_queries.add(query)
+                except QueryTimeout:
+                    if session is not None:
+                        session.terminate()
+                        session = None
+                    warmed_queries.clear()
+                    result = {
+                        "status": "TIMEOUT",
+                        "elapsed_seconds": str(args.timeout_seconds),
+                        "error_summary": (
+                            f"{phase} warmup {warmup_number} exceeded "
+                            f"{args.timeout_seconds} seconds"
+                        ),
+                        "exit_code": 124,
+                    }
+                    write_metric(
+                        writer, run_id, factor, scale_gb, query, 0, result,
+                        database_bytes, query_file, log_path
+                    )
+                    metrics_file.flush()
+                    print(
+                        f"  {tag} {query} {phase} warmup "
+                        f"{warmup_number}: TIMEOUT"
+                    )
+                    return False
+                except (SessionEnded, OSError) as error:
+                    if session is not None:
+                        session.terminate()
+                        session = None
+                    warmed_queries.clear()
+                    result = {
+                        "status": "FAILED",
+                        "error_summary": f"{phase} warmup failed: {error}",
+                        "exit_code": 1,
+                    }
+                    write_metric(
+                        writer, run_id, factor, scale_gb, query, 0, result,
+                        database_bytes, query_file, log_path
+                    )
+                    metrics_file.flush()
+                    print(
+                        f"  {tag} {query} {phase} warmup "
+                        f"{warmup_number}: FAILED"
+                    )
+                    return False
+                return True
+
             try:
-                for query_file in query_files:
-                    query = query_file.stem
-                    query_sql = query_file.read_text(encoding="utf-8")
-                    log_path = scale_log_dir / f"{query}.log"
+                for warmup_round in range(1, args.warmup_runs + 1):
+                    print(
+                        f"  {tag} warmup round "
+                        f"{warmup_round}/{args.warmup_runs}"
+                    )
+                    for query_run in query_runs:
+                        query = query_run[1]
+                        if query in warmup_failures:
+                            continue
+                        if not warm_query(query_run, warmup_round, "initial"):
+                            warmup_failures.add(query)
 
-                    warmup_failed = False
-                    for warmup in range(1, args.warmup_runs + 1):
-                        try:
-                            if session is None:
-                                session = DuckDBSession(args.duckdb_bin, database, args.timeout_seconds)
-                            warmup_result = session.execute(query_sql)
-                            if warmup_result["status"] != "WORKING":
-                                warmup_result["error_summary"] = (
-                                    f"Warmup {warmup} failed: {warmup_result['error_summary']}"
-                                )
-                                write_metric(writer, run_id, factor, scale_gb, query, 0, warmup_result, database_bytes, query_file, log_path)
-                                metrics_file.flush()
-                                print(f"  {tag} {query} warmup {warmup}: FAILED")
-                                warmup_failed = True
-                                break
-                        except QueryTimeout:
-                            if session is not None:
-                                session.terminate()
-                                session = None
-                            result = {
-                                "status": "TIMEOUT",
-                                "elapsed_seconds": str(args.timeout_seconds),
-                                "error_summary": f"Warmup {warmup} exceeded {args.timeout_seconds} seconds",
-                                "exit_code": 124,
-                            }
-                            write_metric(writer, run_id, factor, scale_gb, query, 0, result, database_bytes, query_file, log_path)
-                            metrics_file.flush()
-                            print(f"  {tag} {query} warmup {warmup}: TIMEOUT")
-                            warmup_failed = True
-                            break
-                        except (SessionEnded, OSError) as error:
-                            if session is not None:
-                                session.terminate()
-                                session = None
-                            result = {"status": "FAILED", "error_summary": f"Warmup failed: {error}", "exit_code": 1}
-                            write_metric(writer, run_id, factor, scale_gb, query, 0, result, database_bytes, query_file, log_path)
-                            metrics_file.flush()
-                            print(f"  {tag} {query} warmup {warmup}: FAILED")
-                            warmup_failed = True
-                            break
-                    if warmup_failed:
-                        continue
+                for iteration in range(1, args.repeats + 1):
+                    print(
+                        f"  {tag} measured round {iteration}/{args.repeats}"
+                    )
+                    for query_run in query_runs:
+                        query_file, query, query_sql, log_path = query_run
+                        if query in warmup_failures:
+                            continue
 
-                    for iteration in range(1, args.repeats + 1):
-                        if session is None and args.warmup_runs:
+                        if args.warmup_runs and query not in warmed_queries:
                             warmed = True
-                            for warmup in range(args.warmup_runs):
-                                try:
-                                    session = DuckDBSession(args.duckdb_bin, database, args.timeout_seconds)
-                                    session.execute(query_sql)
-                                except QueryTimeout:
-                                    if session is not None:
-                                        session.terminate()
-                                        session = None
-                                    result = {
-                                        "status": "TIMEOUT",
-                                        "elapsed_seconds": str(args.timeout_seconds),
-                                        "error_summary": "Warmup after session restart timed out",
-                                        "exit_code": 124,
-                                    }
-                                    write_metric(writer, run_id, factor, scale_gb, query, 0, result, database_bytes, query_file, log_path)
-                                    metrics_file.flush()
+                            for warmup in range(1, args.warmup_runs + 1):
+                                if not warm_query(query_run, warmup, "restart"):
                                     warmed = False
-                                    break
-                                except (SessionEnded, OSError) as error:
-                                    if session is not None:
-                                        session.terminate()
-                                        session = None
-                                    result = {"status": "FAILED", "error_summary": f"Warmup after session restart failed: {error}", "exit_code": 1}
-                                    write_metric(writer, run_id, factor, scale_gb, query, 0, result, database_bytes, query_file, log_path)
-                                    metrics_file.flush()
-                                    warmed = False
+                                    warmup_failures.add(query)
                                     break
                             if not warmed:
-                                break
+                                continue
+                        elif session is None:
+                            try:
+                                session = DuckDBSession(
+                                    args.duckdb_bin,
+                                    database,
+                                    args.timeout_seconds,
+                                )
+                            except (SessionEnded, OSError) as error:
+                                result = {
+                                    "status": "FAILED",
+                                    "error_summary": str(error),
+                                    "exit_code": 1,
+                                }
+                                write_metric(
+                                    writer, run_id, factor, scale_gb, query,
+                                    iteration, result, database_bytes,
+                                    query_file, log_path
+                                )
+                                metrics_file.flush()
+                                print(
+                                    f"  {tag} {query} run {iteration}: FAILED"
+                                )
+                                continue
                         try:
-                            if session is None:
-                                session = DuckDBSession(args.duckdb_bin, database, args.timeout_seconds)
                             with log_path.open("a", encoding="utf-8") as log_file:
                                 result = session.execute(query_sql, log_file)
                         except QueryTimeout:
                             if session is not None:
                                 session.terminate()
                                 session = None
+                            warmed_queries.clear()
                             result = {
                                 "status": "TIMEOUT",
                                 "elapsed_seconds": str(args.timeout_seconds),
-                                "error_summary": f"Exceeded {args.timeout_seconds} seconds",
+                                "error_summary": (
+                                    f"Exceeded {args.timeout_seconds} seconds"
+                                ),
                                 "exit_code": 124,
                             }
                         except (SessionEnded, OSError) as error:
                             if session is not None:
                                 session.terminate()
                                 session = None
-                            result = {"status": "FAILED", "error_summary": str(error), "exit_code": 1}
+                            warmed_queries.clear()
+                            result = {
+                                "status": "FAILED",
+                                "error_summary": str(error),
+                                "exit_code": 1,
+                            }
 
-                        write_metric(writer, run_id, factor, scale_gb, query, iteration, result, database_bytes, query_file, log_path)
+                        write_metric(
+                            writer, run_id, factor, scale_gb, query, iteration,
+                            result, database_bytes, query_file, log_path
+                        )
                         metrics_file.flush()
-                        print(f"  {tag} {query} run {iteration}: {result['status']} {result.get('elapsed_seconds', '')} seconds")
+                        print(
+                            f"  {tag} {query} run {iteration}: "
+                            f"{result['status']} "
+                            f"{result.get('elapsed_seconds', '')} seconds"
+                        )
             finally:
                 if session is not None:
                     session.close()

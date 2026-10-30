@@ -1,0 +1,217 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│                           │
+│         ~100 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│           #8 ASC          │
+│   tmp1.s_store_name ASC   │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_class          │
+│          i_brand          │
+│        s_store_name       │
+│       s_company_name      │
+│           d_moy           │
+│         sum_sales         │
+│     avg_monthly_sales     │
+│ (CAST(sum_sales AS DOUBLE)│
+│    - avg_monthly_sales)   │
+│                           │
+│        ~11,530 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│       (CASE  WHEN (       │
+│ (avg_monthly_sales != 0.0)│
+│     ) THEN ((abs((CAST    │
+│  (sum_sales AS DOUBLE) -  │
+│    avg_monthly_sales)) /  │
+│  avg_monthly_sales)) ELSE │
+│       NULL END > 0.1)     │
+│                           │
+│        ~11,530 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│                           │
+│        ~11,530 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│  avg(sum(ss_sales_price)) │
+│     OVER (PARTITION BY    │
+│    i_category, i_brand,   │
+│        s_store_name,      │
+│       s_company_name)     │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_strin│
+│           g(#0)           │
+│__internal_decompress_strin│
+│           g(#1)           │
+│             #2            │
+│__internal_decompress_strin│
+│           g(#3)           │
+│__internal_decompress_strin│
+│           g(#4)           │
+│__internal_decompress_integ│
+│     ral_integer(#5, 1)    │
+│             #6            │
+│                           │
+│        ~11,530 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│                           │
+│    Aggregates: sum(#6)    │
+│                           │
+│        ~11,530 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_class          │
+│          i_brand          │
+│        s_store_name       │
+│       s_company_name      │
+│           d_moy           │
+│       ss_sales_price      │
+│                           │
+│        ~11,531 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_compress_string_│
+│        uhugeint(#2)       │
+│__internal_compress_string_│
+│        uhugeint(#3)       │
+│             #4            │
+│             #0            │
+│__internal_compress_integra│
+│     l_utinyint(#1, 1)     │
+│__internal_compress_string_│
+│        ubigint(#5)        │
+│__internal_compress_string_│
+│        ubigint(#6)        │
+│                           │
+│        ~11,531 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+│  ss_store_sk = s_store_sk │                                                                        │
+│                           │                                                                        │
+│        ~11,531 rows       │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │        Table: store       │
+│                           │                                                          │   Type: Sequential Scan   │
+│        Conditions:        │                                                          │                           │
+│   ss_item_sk = i_item_sk  ├───────────────────────────────────────────┐              │        Projections:       │
+│                           │                                           │              │         s_store_sk        │
+│                           │                                           │              │        s_store_name       │
+│                           │                                           │              │       s_company_name      │
+│                           │                                           │              │                           │
+│        ~11,531 rows       │                                           │              │          ~22 rows         │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │           FILTER          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │  ((((i_category = 'Home') │
+│                           │                             │  OR (i_category = 'Books')│
+│        Conditions:        │                             │      OR (i_category =     │
+│ss_sold_date_sk = d_date_sk│                             │   'Electronics')) AND (   │
+│                           │                             │ (i_class = 'wallpaper') OR│
+│                           │                             │   (i_class = 'parenting') │
+│                           │                             │  OR (i_class = 'musical'))│
+│                           ├──────────────┐              │   ) OR (((i_category =    │
+│                           │              │              │ 'Shoes') OR (i_category = │
+│                           │              │              │ 'Jewelry') OR (i_category │
+│                           │              │              │ = 'Men')) AND ((i_class = │
+│                           │              │              │  'womens') OR (i_class =  │
+│                           │              │              │  'birdal') OR (i_class =  │
+│                           │              │              │        'pants'))))        │
+│                           │              │              │                           │
+│        ~58,821 rows       │              │              │        ~5,200 rows        │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││           FILTER          ││         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││ (d_date_sk BETWEEN 2450816││        Table: item        │
+│   Type: Sequential Scan   ││        AND 2452642)       ││   Type: Sequential Scan   │
+│                           ││                           ││                           │
+│        Projections:       ││                           ││        Projections:       │
+│         ss_item_sk        ││                           ││         i_item_sk         │
+│      ss_sold_date_sk      ││                           ││         i_category        │
+│        ss_store_sk        ││                           ││          i_class          │
+│       ss_sales_price      ││                           ││          i_brand          │
+│                           ││                           ││                           │
+│      ~5,760,749 rows      ││         ~542 rows         ││        ~26,000 rows       │
+└───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          │
+                             │    ────────────────────   │
+                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         d_date_sk         │
+                             │           d_moy           │
+                             │                           │
+                             │    Filters: d_year=2000   │
+                             │                           │
+                             │         ~542 rows         │
+                             └───────────────────────────┘

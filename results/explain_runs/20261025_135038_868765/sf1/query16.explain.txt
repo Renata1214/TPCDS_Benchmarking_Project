@@ -1,0 +1,185 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────┐
+│     TOP_N     │
+│    ────────   │
+│    Top: 100   │
+│               │
+│   Order By:   │
+│ count(DISTINCT│
+│ cs1.cs_order_n│
+│   umber) ASC  │
+└───────┬───────┘
+┌───────┴───────┐
+│UNGROUPED_...  │
+│    ────────   │
+│  Aggregates:  │
+│ count(DISTINCT│
+│       #0)     │
+│    sum(#1)    │
+│    sum(#2)    │
+└───────┬───────┘
+┌───────┴───────┐
+│   PROJECTION  │
+│    ────────   │
+│cs_order_number│
+│cs_ext_ship_cos│
+│       t       │
+│ cs_net_profit │
+│               │
+│    ~63 rows   │
+└───────┬───────┘
+┌───────┴───────┐
+│RIGHT_DELI...  │
+│    ────────   │
+│   Join Type:  │
+│   RIGHT_ANTI  │
+│               │
+│  Conditions:  │
+│cs_order_number├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────────────────┐
+│ IS NOT DISTINC│                                                                                                                                                │                                                  │
+│T FROM cs_order│                                                                                                                                                │                                                  │
+│    _number    │                                                                                                                                                │                                                  │
+│               │                                                                                                                                                │                                                  │
+│    ~63 rows   │                                                                                                                                                │                                                  │
+└───────┬───────┘                                                                                                                                                │                                                  │
+┌───────┴───────┐                                                                                                                                        ┌───────┴───────┐                                  ┌───────┴───────┐
+│RIGHT_DELI...  │                                                                                                                                        │   HASH_JOIN   │                                  │ HASH_GROUP_BY │
+│    ────────   │                                                                                                                                        │    ────────   │                                  │    ────────   │
+│   Join Type:  │                                                                                                                                        │   Join Type:  │                                  │    Groups:    │
+│   RIGHT_SEMI  │                                                                                                                                        │   RIGHT_ANTI  │                                  │       #0      │
+│               │                                                                                                                                        │               │                                  │               │
+│  Conditions:  │                                                                                                                                        │  Conditions:  │                                  │               │
+│cs_warehouse_sk│                                                                                                                                        │cs_order_number│                                  │               │
+│ IS NOT DISTINC│                                                                                                                                        │ IS NOT DISTINC│                                  │               │
+│T FROM cs_wareh├────────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────────────────┐        │T FROM cs_order├─────────────────────────┐        │               │
+│    ouse_sk    │                                                                            │                                                  │        │    _number    │                         │        │               │
+│cs_order_number│                                                                            │                                                  │        │               │                         │        │               │
+│ IS NOT DISTINC│                                                                            │                                                  │        │               │                         │        │               │
+│T FROM cs_order│                                                                            │                                                  │        │               │                         │        │               │
+│    _number    │                                                                            │                                                  │        │               │                         │        │               │
+│               │                                                                            │                                                  │        │               │                         │        │               │
+│   ~317 rows   │                                                                            │                                                  │        │    ~63 rows   │                         │        │   ~315 rows   │
+└───────┬───────┘                                                                            │                                                  │        └───────┬───────┘                         │        └───────────────┘
+┌───────┴───────┐                                                                    ┌───────┴───────┐                                  ┌───────┴───────┐┌───────┴───────┐                 ┌───────┴───────┐
+│   HASH_JOIN   │                                                                    │   HASH_JOIN   │                                  │ HASH_GROUP_BY ││   PROJECTION  │                 │   DUMMY_SCAN  │
+│    ────────   │                                                                    │    ────────   │                                  │    ────────   ││    ────────   │                 │               │
+│   Join Type:  │                                                                    │   Join Type:  │                                  │    Groups:    ││cs_order_number│                 │               │
+│     INNER     │                                                                    │   RIGHT_SEMI  │                                  │       #2      ││               │                 │               │
+│               │                                                                    │               │                                  │       #1      ││               │                 │               │
+│  Conditions:  │                                                                    │  Conditions:  │                                  │               ││               │                 │               │
+│  d_date_sk =  │                                                                    │cs_warehouse_sk│                                  │               ││               │                 │               │
+│ cs_ship_date_s│                                                                    │ IS NOT DISTINC│                                  │               ││               │                 │               │
+│       k       ├────────┐                                                           │T FROM cs_wareh├─────────────────────────┐        │               ││               │                 │               │
+│               │        │                                                           │    ouse_sk    │                         │        │               ││               │                 │               │
+│               │        │                                                           │cs_order_number│                         │        │               ││               │                 │               │
+│               │        │                                                           │ IS NOT DISTINC│                         │        │               ││               │                 │               │
+│               │        │                                                           │T FROM cs_order│                         │        │               ││               │                 │               │
+│               │        │                                                           │    _number    │                         │        │               ││               │                 │               │
+│               │        │                                                           │               │                         │        │               ││               │                 │               │
+│  ~1,587 rows  │        │                                                           │   ~317 rows   │                         │        │  ~1,581 rows  ││   ~588 rows   │                 │               │
+└───────┬───────┘        │                                                           └───────┬───────┘                         │        └───────────────┘└───────┬───────┘                 └───────────────┘
+┌───────┴───────┐┌───────┴───────┐                                                   ┌───────┴───────┐                 ┌───────┴───────┐                 ┌───────┴───────┐
+│     FILTER    ││   HASH_JOIN   │                                                   │   PROJECTION  │                 │   DUMMY_SCAN  │                 │   HASH_JOIN   │
+│    ────────   ││    ────────   │                                                   │    ────────   │                 │               │                 │    ────────   │
+│   (d_date_sk  ││   Join Type:  │                                                   │cs_warehouse_sk│                 │               │                 │   Join Type:  │
+│     BETWEEN   ││     INNER     │                                                   │cs_order_number│                 │               │                 │     INNER     │
+│   2450817 AND ││               │                                                   │               │                 │               │                 │               │
+│    2452738)   ││  Conditions:  ├─────────────────────────┐                         │               │                 │               │                 │  Conditions:  ├────────┐
+│               ││cs_call_center_│                         │                         │               │                 │               │                 │cr_order_number│        │
+│               ││sk = cc_call_ce│                         │                         │               │                 │               │                 │ = cs_order_num│        │
+│               ││    nter_sk    │                         │                         │               │                 │               │                 │      ber      │        │
+│               ││               │                         │                         │               │                 │               │                 │               │        │
+│  ~14,609 rows ││  ~5,768 rows  │                         │                         │  ~23,491 rows │                 │               │                 │   ~588 rows   │        │
+└───────┬───────┘└───────┬───────┘                         │                         └───────┬───────┘                 └───────────────┘                 └───────┬───────┘        │
+┌───────┴───────┐┌───────┴───────┐                 ┌───────┴───────┐                 ┌───────┴───────┐                                                   ┌───────┴───────┐┌───────┴───────┐
+│   SEQ_SCAN    ││   HASH_JOIN   │                 │   PROJECTION  │                 │   HASH_JOIN   │                                                   │   SEQ_SCAN    ││   DELIM_SCAN  │
+│    ────────   ││    ────────   │                 │    ────────   │                 │    ────────   │                                                   │    ────────   ││    ────────   │
+│     Table:    ││   Join Type:  │                 │       #0      │                 │   Join Type:  │                                                   │     Table:    ││  Delim Index: │
+│    date_dim   ││     INNER     │                 │               │                 │     INNER     │                                                   │catalog_returns││       2       │
+│               ││               │                 │               │                 │               │                                                   │               ││               │
+│     Type:     ││  Conditions:  │                 │               │                 │  Conditions:  │                                                   │     Type:     ││               │
+│Sequential Scan││cs_ship_addr_sk│                 │               │                 │cs_order_number│                                                   │Sequential Scan││               │
+│               ││ = ca_address_s│                 │               │                 │ = cs_order_num│                                                   │               ││               │
+│  Projections: ││       k       │                 │               │                 │      ber      │                                                   │  Projections: ││               │
+│   d_date_sk   ││               │                 │               │                 │cs_warehouse_sk│                                                   │cr_order_number││               │
+│               ││               │                 │               │                 │ != cs_warehous│                                                   │               ││               │
+│    Filters:   ││               ├────────┐        │               │                 │      e_sk     ├────────┐                                          │               ││               │
+│  (CAST(d_date ││               │        │        │               │                 │               │        │                                          │               ││               │
+│  AS TIMESTAMP)││               │        │        │               │                 │               │        │                                          │               ││               │
+│  BETWEEN '1999││               │        │        │               │                 │               │        │                                          │               ││               │
+│  -02-01 00:00 ││               │        │        │               │                 │               │        │                                          │               ││               │
+│:00'::TIMESTAMP││               │        │        │               │                 │               │        │                                          │               ││               │
+│  AND '1999-04 ││               │        │        │               │                 │               │        │                                          │               ││               │
+│ -02 00:00:00':││               │        │        │               │                 │               │        │                                          │               ││               │
+│  :TIMESTAMP)  ││               │        │        │               │                 │               │        │                                          │               ││               │
+│               ││               │        │        │               │                 │               │        │                                          │               ││               │
+│  ~14,609 rows ││  ~34,611 rows │        │        │     ~1 row    │                 │  ~23,491 rows │        │                                          │ ~144,067 rows ││   ~315 rows   │
+└───────────────┘└───────┬───────┘        │        └───────┬───────┘                 └───────┬───────┘        │                                          └───────────────┘└───────────────┘
+                 ┌───────┴───────┐┌───────┴───────┐┌───────┴───────┐                 ┌───────┴───────┐┌───────┴───────┐
+                 │   SEQ_SCAN    ││   SEQ_SCAN    ││     FILTER    │                 │   SEQ_SCAN    ││   DELIM_SCAN  │
+                 │    ────────   ││    ────────   ││    ────────   │                 │    ────────   ││    ────────   │
+                 │     Table:    ││     Table:    ││    IN (...)   │                 │     Table:    ││  Delim Index: │
+                 │ catalog_sales ││customer_addres││               │                 │ catalog_sales ││       1       │
+                 │               ││       s       ││               │                 │               ││               │
+                 │     Type:     ││               ││               │                 │     Type:     ││               │
+                 │Sequential Scan││     Type:     ││               │                 │Sequential Scan││               │
+                 │               ││Sequential Scan││               │                 │               ││               │
+                 │  Projections: ││               ││               │                 │  Projections: ││               │
+                 │cs_ship_date_sk││  Projections: ││               │                 │cs_order_number││               │
+                 │cs_ship_addr_sk││ ca_address_sk ││               │                 │cs_warehouse_sk││               │
+                 │cs_call_center_││               ││               │                 │               ││               │
+                 │       sk      ││    Filters:   ││               │                 │               ││               │
+                 │cs_order_number││ ca_state='IL' ││               │                 │               ││               │
+                 │cs_warehouse_sk││               ││               │                 │               ││               │
+                 │cs_ext_ship_cos││               ││               │                 │               ││               │
+                 │       t       ││               ││               │                 │               ││               │
+                 │ cs_net_profit ││               ││               │                 │               ││               │
+                 │               ││               ││               │                 │               ││               │
+                 │~1,441,548 rows││   ~910 rows   ││     ~1 row    │                 │~1,441,548 rows││  ~1,581 rows  │
+                 └───────────────┘└───────────────┘└───────┬───────┘                 └───────────────┘└───────────────┘
+                                                   ┌───────┴───────┐
+                                                   │   HASH_JOIN   │
+                                                   │    ────────   │
+                                                   │   Join Type:  │
+                                                   │      MARK     │
+                                                   │               ├────────┐
+                                                   │  Conditions:  │        │
+                                                   │ cc_county = #0│        │
+                                                   │               │        │
+                                                   │    ~6 rows    │        │
+                                                   └───────┬───────┘        │
+                                                   ┌───────┴───────┐┌───────┴───────┐
+                                                   │   SEQ_SCAN    ││COLUMN_DAT...  │
+                                                   │    ────────   ││    ────────   │
+                                                   │     Table:    ││               │
+                                                   │  call_center  ││               │
+                                                   │               ││               │
+                                                   │     Type:     ││               │
+                                                   │Sequential Scan││               │
+                                                   │               ││               │
+                                                   │  Projections: ││               │
+                                                   │cc_call_center_││               │
+                                                   │       sk      ││               │
+                                                   │   cc_county   ││               │
+                                                   │               ││               │
+                                                   │    Filters:   ││               │
+                                                   │   optional:   ││               │
+                                                   │  cc_county IN ││               │
+                                                   │  ('Williamson ││               │
+                                                   │    County',   ││               │
+                                                   │  'Williamson  ││               │
+                                                   │    County',   ││               │
+                                                   │  'Williamson  ││               │
+                                                   │    County',   ││               │
+                                                   │  'Williamson  ││               │
+                                                   │    County',   ││               │
+                                                   │  'Williamson  ││               │
+                                                   │    County')   ││               │
+                                                   │               ││               │
+                                                   │    ~6 rows    ││    ~0 rows    │
+                                                   └───────────────┘└───────────────┘

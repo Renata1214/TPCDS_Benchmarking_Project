@@ -1,0 +1,118 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│    tpcds_sf8.main.item    │
+│       .i_item_id ASC      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│         Groups: #0        │
+│                           │
+│        Aggregates:        │
+│          avg(#1)          │
+│          avg(#2)          │
+│          avg(#3)          │
+│          avg(#4)          │
+│                           │
+│        ~3,003 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_item_id         │
+│        cs_quantity        │
+│       cs_list_price       │
+│       cs_coupon_amt       │
+│       cs_sales_price      │
+│                           │
+│        ~3,065 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│   i_item_sk = cs_item_sk  │              │
+│                           │              │
+│        ~3,065 rows        │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│        Table: item        ││      Join Type: INNER     │
+│   Type: Sequential Scan   ││                           │
+│                           ││        Conditions:        │
+│        Projections:       ││  cs_promo_sk = p_promo_sk │
+│         i_item_sk         ││                           │
+│         i_item_id         ││                           ├────────────────────────────────────────────────────────────────────────┐
+│                           ││                           │                                                                        │
+│          Filters:         ││                           │                                                                        │
+│ optional: Dynamic Filter  ││                           │                                                                        │
+│        (i_item_id)        ││                           │                                                                        │
+│                           ││                           │                                                                        │
+│        ~82,000 rows       ││        ~3,065 rows        │                                                                        │
+└───────────────────────────┘└─────────────┬─────────────┘                                                                        │
+                             ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                                                          │         PROJECTION        │
+                             │    ────────────────────   │                                                          │    ────────────────────   │
+                             │      Join Type: INNER     │                                                          │             #0            │
+                             │                           │                                                          │                           │
+                             │        Conditions:        ├──────────────┐                                           │                           │
+                             │        cd_demo_sk =       │              │                                           │                           │
+                             │      cs_bill_cdemo_sk     │              │                                           │                           │
+                             │                           │              │                                           │                           │
+                             │        ~16,808 rows       │              │                                           │          ~91 rows         │
+                             └─────────────┬─────────────┘              │                                           └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │           FILTER          ││         HASH_JOIN         │                             │           FILTER          │
+                             │    ────────────────────   ││    ────────────────────   │                             │    ────────────────────   │
+                             │     (cd_demo_sk >= 2)     ││      Join Type: INNER     │                             │  ((p_channel_email = 'N') │
+                             │                           ││                           │                             │  OR (p_channel_event = 'N'│
+                             │                           ││        Conditions:        ├──────────────┐              │             ))            │
+                             │                           ││cs_sold_date_sk = d_date_sk│              │              │                           │
+                             │                           ││                           │              │              │                           │
+                             │       ~274,400 rows       ││       ~117,658 rows       │              │              │          ~91 rows         │
+                             └─────────────┬─────────────┘└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         SEQ_SCAN          ││           FILTER          ││         SEQ_SCAN          │
+                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                             │           Table:          ││    Table: catalog_sales   ││ (d_date_sk BETWEEN 2450815││      Table: promotion     │
+                             │   customer_demographics   ││   Type: Sequential Scan   ││        AND 2452655)       ││   Type: Sequential Scan   │
+                             │                           ││                           ││                           ││                           │
+                             │   Type: Sequential Scan   ││        Projections:       ││                           ││        Projections:       │
+                             │                           ││      cs_sold_date_sk      ││                           ││         p_promo_sk        │
+                             │        Projections:       ││         cs_item_sk        ││                           ││      p_channel_email      │
+                             │         cd_demo_sk        ││      cs_bill_cdemo_sk     ││                           ││      p_channel_event      │
+                             │                           ││        cs_promo_sk        ││                           ││                           │
+                             │          Filters:         ││        cs_quantity        ││                           ││                           │
+                             │       cd_gender='F'       ││       cs_list_price       ││                           ││                           │
+                             │   cd_marital_status='W'   ││       cs_coupon_amt       ││                           ││                           │
+                             │    cd_education_status=   ││       cs_sales_price      ││                           ││                           │
+                             │         'Primary'         ││                           ││                           ││                           │
+                             │                           ││                           ││                           ││                           │
+                             │       ~274,400 rows       ││      ~11,522,895 rows     ││         ~542 rows         ││         ~455 rows         │
+                             └───────────────────────────┘└───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘
+                                                                                       ┌─────────────┴─────────────┐
+                                                                                       │         SEQ_SCAN          │
+                                                                                       │    ────────────────────   │
+                                                                                       │      Table: date_dim      │
+                                                                                       │   Type: Sequential Scan   │
+                                                                                       │                           │
+                                                                                       │        Projections:       │
+                                                                                       │         d_date_sk         │
+                                                                                       │                           │
+                                                                                       │    Filters: d_year=1998   │
+                                                                                       │                           │
+                                                                                       │         ~542 rows         │
+                                                                                       └───────────────────────────┘

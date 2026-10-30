@@ -84,6 +84,20 @@ for scale in "${SCALES[@]}"; do
                 -SCALE "$scale" \
                 -FILTER Y
         ) > "$sql_file" 2> "$error_file" && [[ -s "$sql_file" ]]; then
+            if [[ "$base" == "query74" ]]; then
+                wrapped_file="$(mktemp "$OUTPUT/.query74.sql.XXXXXX")"
+                if {
+                    printf "SET disabled_optimizers = 'join_order';\n\n"
+                    cat "$sql_file"
+                    printf "\nSET disabled_optimizers = '';\n"
+                } > "$wrapped_file"; then
+                    mv -f -- "$wrapped_file" "$sql_file"
+                else
+                    rm -f -- "$wrapped_file"
+                    printf 'ERROR: Could not add Query 74 optimizer settings for scale %s GB.\n' "$scale" >&2
+                    exit 1
+                fi
+            fi
             printf '%s,%s,%s,OK,\n' "$scale" "$number" "$template" >> "$REPORT"
             rm -f -- "$error_file"
         else

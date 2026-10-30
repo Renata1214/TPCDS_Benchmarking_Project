@@ -1,0 +1,266 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────┐
+│         TOP_N         │
+│    ────────────────   │
+│        Top: 100       │
+│                       │
+│       Order By:       │
+│      channel ASC      │
+│    return_rank ASC    │
+│   currency_rank ASC   │
+│        item ASC       │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│     HASH_GROUP_BY     │
+│    ────────────────   │
+│        Groups:        │
+│           #0          │
+│           #1          │
+│           #2          │
+│           #3          │
+│           #4          │
+│                       │
+│       ~289 rows       │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│         UNION         ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+└───────────┬───────────┘                                                                                                                                         │
+┌───────────┴───────────┐                                                                                                                             ┌───────────┴───────────┐
+│     HASH_GROUP_BY     │                                                                                                                             │       PROJECTION      │
+│    ────────────────   │                                                                                                                             │    ────────────────   │
+│        Groups:        │                                                                                                                             │        channel        │
+│           #0          │                                                                                                                             │          item         │
+│           #1          │                                                                                                                             │      return_ratio     │
+│           #2          │                                                                                                                             │      return_rank      │
+│           #3          │                                                                                                                             │     currency_rank     │
+│           #4          │                                                                                                                             │                       │
+│                       │                                                                                                                             │                       │
+│       ~108 rows       │                                                                                                                             │       ~289 rows       │
+└───────────┬───────────┘                                                                                                                             └───────────┬───────────┘
+┌───────────┴───────────┐                                                                                                                             ┌───────────┴───────────┐
+│         UNION         │                                                                                                                             │       PROJECTION      │
+│                       │                                                                                                                             │    ────────────────   │
+│                       │                                                                                                                             │           #0          │
+│                       │                                                                                                                             │           #1          │
+│                       ├──────────────────────────────────────────────────────────────┐                                                              │           #3          │
+│                       │                                                              │                                                              │           #4          │
+│                       │                                                              │                                                              │                       │
+│                       │                                                              │                                                              │       ~289 rows       │
+└───────────┬───────────┘                                                              │                                                              └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │         FILTER        │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│        channel        │                                                  │        channel        │                                                  │  ((return_rank <= 10) │
+│          item         │                                                  │          item         │                                                  │  OR (currency_rank <= │
+│      return_ratio     │                                                  │      return_ratio     │                                                  │          10))         │
+│      return_rank      │                                                  │      return_rank      │                                                  │                       │
+│     currency_rank     │                                                  │     currency_rank     │                                                  │                       │
+│                       │                                                  │                       │                                                  │                       │
+│        ~85 rows       │                                                  │       ~108 rows       │                                                  │       ~289 rows       │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│           #0          │                                                  │           #0          │                                                  │           #0          │
+│           #1          │                                                  │           #1          │                                                  │           #1          │
+│           #3          │                                                  │           #3          │                                                  │           #2          │
+│           #4          │                                                  │           #4          │                                                  │           #3          │
+│                       │                                                  │                       │                                                  │           #4          │
+│                       │                                                  │                       │                                                  │                       │
+│        ~85 rows       │                                                  │       ~108 rows       │                                                  │      ~1,448 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│         FILTER        │                                                  │         FILTER        │                                                  │         WINDOW        │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│  ((return_rank <= 10) │                                                  │  ((return_rank <= 10) │                                                  │      Projections:     │
+│  OR (currency_rank <= │                                                  │  OR (currency_rank <= │                                                  │ RANK() OVER (ORDER BY │
+│          10))         │                                                  │          10))         │                                                  │   currency_ratio ASC  │
+│                       │                                                  │                       │                                                  │       NULLS LAST)     │
+│        ~85 rows       │                                                  │       ~108 rows       │                                                  │                       │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │         WINDOW        │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│           #0          │                                                  │           #0          │                                                  │      Projections:     │
+│           #1          │                                                  │           #1          │                                                  │ RANK() OVER (ORDER BY │
+│           #2          │                                                  │           #2          │                                                  │    return_ratio ASC   │
+│           #3          │                                                  │           #3          │                                                  │       NULLS LAST)     │
+│           #4          │                                                  │           #4          │                                                  │                       │
+│                       │                                                  │                       │                                                  │                       │
+│       ~426 rows       │                                                  │       ~540 rows       │                                                  │                       │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│         WINDOW        │                                                  │         WINDOW        │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│      Projections:     │                                                  │      Projections:     │                                                  │          item         │
+│ RANK() OVER (ORDER BY │                                                  │ RANK() OVER (ORDER BY │                                                  │      return_ratio     │
+│   currency_ratio ASC  │                                                  │   currency_ratio ASC  │                                                  │     currency_ratio    │
+│       NULLS LAST)     │                                                  │       NULLS LAST)     │                                                  │                       │
+│                       │                                                  │                       │                                                  │      ~1,448 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│         WINDOW        │                                                  │         WINDOW        │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│      Projections:     │                                                  │      Projections:     │                                                  │__internal_decompress_i│
+│ RANK() OVER (ORDER BY │                                                  │ RANK() OVER (ORDER BY │                                                  │ ntegral_integer(#0, 1)│
+│    return_ratio ASC   │                                                  │    return_ratio ASC   │                                                  │           #1          │
+│       NULLS LAST)     │                                                  │       NULLS LAST)     │                                                  │           #2          │
+│                       │                                                  │                       │                                                  │           #3          │
+│                       │                                                  │                       │                                                  │           #4          │
+│                       │                                                  │                       │                                                  │                       │
+│                       │                                                  │                       │                                                  │      ~1,448 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │     HASH_GROUP_BY     │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│          item         │                                                  │          item         │                                                  │       Groups: #0      │
+│      return_ratio     │                                                  │      return_ratio     │                                                  │                       │
+│     currency_ratio    │                                                  │     currency_ratio    │                                                  │      Aggregates:      │
+│                       │                                                  │                       │                                                  │        sum(#1)        │
+│                       │                                                  │                       │                                                  │        sum(#2)        │
+│                       │                                                  │                       │                                                  │        sum(#3)        │
+│                       │                                                  │                       │                                                  │        sum(#4)        │
+│                       │                                                  │                       │                                                  │                       │
+│       ~426 rows       │                                                  │       ~540 rows       │                                                  │      ~1,448 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│__internal_decompress_i│                                                  │__internal_decompress_i│                                                  │       ss_item_sk      │
+│ ntegral_integer(#0, 1)│                                                  │ ntegral_integer(#0, 1)│                                                  │        COALESCE       │
+│           #1          │                                                  │           #1          │                                                  │(sr_return_quantity, 0)│
+│           #2          │                                                  │           #2          │                                                  │      ss_quantity      │
+│           #3          │                                                  │           #3          │                                                  │ CAST(sr_return_amt AS │
+│           #4          │                                                  │           #4          │                                                  │     DECIMAL(12,2))    │
+│                       │                                                  │                       │                                                  │  CAST(ss_net_paid AS  │
+│                       │                                                  │                       │                                                  │     DECIMAL(12,2))    │
+│                       │                                                  │                       │                                                  │                       │
+│       ~426 rows       │                                                  │       ~540 rows       │                                                  │      ~1,523 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│     HASH_GROUP_BY     │                                                  │     HASH_GROUP_BY     │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│       Groups: #0      │                                                  │       Groups: #0      │                                                  │           #0          │
+│                       │                                                  │                       │                                                  │           #1          │
+│      Aggregates:      │                                                  │      Aggregates:      │                                                  │__internal_compress_int│
+│        sum(#1)        │                                                  │        sum(#1)        │                                                  │ egral_usmallint(#2, 1)│
+│        sum(#2)        │                                                  │        sum(#2)        │                                                  │           #3          │
+│        sum(#3)        │                                                  │        sum(#3)        │                                                  │           #4          │
+│        sum(#4)        │                                                  │        sum(#4)        │                                                  │                       │
+│                       │                                                  │                       │                                                  │                       │
+│       ~426 rows       │                                                  │       ~540 rows       │                                                  │      ~1,523 rows      │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │       HASH_JOIN       │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│       ws_item_sk      │                                                  │       cs_item_sk      │                                                  │    Join Type: INNER   │
+│        COALESCE       │                                                  │        COALESCE       │                                                  │                       │
+│(wr_return_quantity, 0)│                                                  │(cr_return_quantity, 0)│                                                  │      Conditions:      │
+│      ws_quantity      │                                                  │      cs_quantity      │                                                  │   sr_ticket_number =  │
+│ CAST(wr_return_amt AS │                                                  │ CAST(cr_return_amount │                                                  │    ss_ticket_number   ├────────────┐
+│     DECIMAL(12,2))    │                                                  │    AS DECIMAL(12,2))  │                                                  │sr_item_sk = ss_item_sk│            │
+│  CAST(ws_net_paid AS  │                                                  │  CAST(cs_net_paid AS  │                                                  │                       │            │
+│     DECIMAL(12,2))    │                                                  │     DECIMAL(12,2))    │                                                  │                       │            │
+│                       │                                                  │                       │                                                  │                       │            │
+│       ~433 rows       │                                                  │       ~550 rows       │                                                  │      ~1,523 rows      │            │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘            │
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │       SEQ_SCAN        ││       HASH_JOIN       │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   ││    ────────────────   │
+│           #0          │                                                  │           #0          │                                                  │         Table:        ││    Join Type: INNER   │
+│           #1          │                                                  │           #1          │                                                  │     store_returns     ││                       │
+│__internal_compress_int│                                                  │__internal_compress_int│                                                  │                       ││      Conditions:      │
+│ egral_usmallint(#2, 1)│                                                  │ egral_usmallint(#2, 1)│                                                  │         Type:         ││   ss_sold_date_sk =   │
+│           #3          │                                                  │           #3          │                                                  │    Sequential Scan    ││        d_date_sk      │
+│           #4          │                                                  │           #4          │                                                  │                       ││                       │
+│                       │                                                  │                       │                                                  │      Projections:     ││                       │
+│                       │                                                  │                       │                                                  │    sr_ticket_number   ││                       ├────────────┐
+│                       │                                                  │                       │                                                  │       sr_item_sk      ││                       │            │
+│                       │                                                  │                       │                                                  │     sr_return_amt     ││                       │            │
+│                       │                                                  │                       │                                                  │   sr_return_quantity  ││                       │            │
+│                       │                                                  │                       │                                                  │                       ││                       │            │
+│                       │                                                  │                       │                                                  │        Filters:       ││                       │            │
+│                       │                                                  │                       │                                                  │ sr_return_amt>10000.00││                       │            │
+│                       │                                                  │                       │                                                  │                       ││                       │            │
+│       ~433 rows       │                                                  │       ~550 rows       │                                                  │      ~57,502 rows     ││      ~5,882 rows      │            │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────────────────┘└───────────┬───────────┘            │
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                                           ┌───────────┴───────────┐┌───────────┴───────────┐
+│       HASH_JOIN       │                                                  │       HASH_JOIN       │                                                                           │       SEQ_SCAN        ││         FILTER        │
+│    ────────────────   │                                                  │    ────────────────   │                                                                           │    ────────────────   ││    ────────────────   │
+│    Join Type: INNER   │                                                  │    Join Type: INNER   │                                                                           │         Table:        ││   (d_date_sk BETWEEN  │
+│                       │                                                  │                       │                                                                           │      store_sales      ││  2450816 AND 2452642) │
+│      Conditions:      │                                                  │      Conditions:      │                                                                           │                       ││                       │
+│   wr_order_number =   │                                                  │   cr_order_number =   │                                                                           │         Type:         ││                       │
+│     ws_order_number   │                                                  │     cs_order_number   │                                                                           │    Sequential Scan    ││                       │
+│wr_item_sk = ws_item_sk│                                                  │cr_item_sk = cs_item_sk│                                                                           │                       ││                       │
+│                       │                                                  │                       │                                                                           │      Projections:     ││                       │
+│                       │                                                  │                       │                                                                           │    ss_ticket_number   ││                       │
+│                       ├────────────┐                                     │                       ├────────────┐                                                              │       ss_item_sk      ││                       │
+│                       │            │                                     │                       │            │                                                              │      ss_net_paid      ││                       │
+│                       │            │                                     │                       │            │                                                              │      ss_quantity      ││                       │
+│                       │            │                                     │                       │            │                                                              │    ss_sold_date_sk    ││                       │
+│                       │            │                                     │                       │            │                                                              │                       ││                       │
+│                       │            │                                     │                       │            │                                                              │        Filters:       ││                       │
+│                       │            │                                     │                       │            │                                                              │   ss_net_profit>1.00  ││                       │
+│                       │            │                                     │                       │            │                                                              │    ss_net_paid>0.00   ││                       │
+│                       │            │                                     │                       │            │                                                              │     ss_quantity>0     ││                       │
+│                       │            │                                     │                       │            │                                                              │                       ││                       │
+│       ~433 rows       │            │                                     │       ~550 rows       │            │                                                              │     ~576,080 rows     ││       ~542 rows       │
+└───────────┬───────────┘            │                                     └───────────┬───────────┘            │                                                              └───────────────────────┘└───────────┬───────────┘
+┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐                                                                           ┌───────────┴───────────┐
+│       SEQ_SCAN        ││       HASH_JOIN       │                         │       SEQ_SCAN        ││       HASH_JOIN       │                                                                           │       SEQ_SCAN        │
+│    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │                                                                           │    ────────────────   │
+│         Table:        ││    Join Type: INNER   │                         │         Table:        ││    Join Type: INNER   │                                                                           │    Table: date_dim    │
+│      web_returns      ││                       │                         │    catalog_returns    ││                       │                                                                           │                       │
+│                       ││      Conditions:      │                         │                       ││      Conditions:      │                                                                           │         Type:         │
+│         Type:         ││   ws_sold_date_sk =   │                         │         Type:         ││   cs_sold_date_sk =   │                                                                           │    Sequential Scan    │
+│    Sequential Scan    ││        d_date_sk      │                         │    Sequential Scan    ││        d_date_sk      │                                                                           │                       │
+│                       ││                       │                         │                       ││                       │                                                                           │      Projections:     │
+│      Projections:     ││                       │                         │      Projections:     ││                       │                                                                           │       d_date_sk       │
+│    wr_order_number    ││                       ├────────────┐            │    cr_order_number    ││                       ├────────────┐                                                              │                       │
+│       wr_item_sk      ││                       │            │            │       cr_item_sk      ││                       │            │                                                              │        Filters:       │
+│     wr_return_amt     ││                       │            │            │    cr_return_amount   ││                       │            │                                                              │      d_year=2000      │
+│   wr_return_quantity  ││                       │            │            │   cr_return_quantity  ││                       │            │                                                              │        d_moy=12       │
+│                       ││                       │            │            │                       ││                       │            │                                                              │                       │
+│        Filters:       ││                       │            │            │        Filters:       ││                       │            │                                                              │                       │
+│ wr_return_amt>10000.00││                       │            │            │ cr_return_amount>10000││                       │            │                                                              │                       │
+│                       ││                       │            │            │          .00          ││                       │            │                                                              │                       │
+│                       ││                       │            │            │                       ││                       │            │                                                              │                       │
+│      ~14,352 rows     ││      ~1,469 rows      │            │            │      ~28,813 rows     ││      ~2,943 rows      │            │                                                              │       ~542 rows       │
+└───────────────────────┘└───────────┬───────────┘            │            └───────────────────────┘└───────────┬───────────┘            │                                                              └───────────────────────┘
+                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐
+                         │         FILTER        ││         FILTER        │                         │         FILTER        ││         FILTER        │
+                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │
+                         │  (ws_order_number <=  ││   (d_date_sk BETWEEN  │                         │ (cs_order_number >= 2)││   (d_date_sk BETWEEN  │
+                         │         59997)        ││  2450816 AND 2452642) │                         │                       ││  2450815 AND 2452648) │
+                         │                       ││                       │                         │                       ││                       │
+                         │     ~143,876 rows     ││       ~542 rows       │                         │     ~288,309 rows     ││       ~542 rows       │
+                         └───────────┬───────────┘└───────────┬───────────┘                         └───────────┬───────────┘└───────────┬───────────┘
+                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐
+                         │       SEQ_SCAN        ││       SEQ_SCAN        │                         │       SEQ_SCAN        ││       SEQ_SCAN        │
+                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │
+                         │    Table: web_sales   ││    Table: date_dim    │                         │         Table:        ││    Table: date_dim    │
+                         │                       ││                       │                         │     catalog_sales     ││                       │
+                         │         Type:         ││         Type:         │                         │                       ││         Type:         │
+                         │    Sequential Scan    ││    Sequential Scan    │                         │         Type:         ││    Sequential Scan    │
+                         │                       ││                       │                         │    Sequential Scan    ││                       │
+                         │      Projections:     ││      Projections:     │                         │                       ││      Projections:     │
+                         │    ws_order_number    ││       d_date_sk       │                         │      Projections:     ││       d_date_sk       │
+                         │       ws_item_sk      ││                       │                         │    cs_order_number    ││                       │
+                         │      ws_net_paid      ││        Filters:       │                         │       cs_item_sk      ││        Filters:       │
+                         │      ws_quantity      ││      d_year=2000      │                         │      cs_net_paid      ││      d_year=2000      │
+                         │    ws_sold_date_sk    ││        d_moy=12       │                         │      cs_quantity      ││        d_moy=12       │
+                         │                       ││                       │                         │    cs_sold_date_sk    ││                       │
+                         │        Filters:       ││                       │                         │                       ││                       │
+                         │   ws_net_profit>1.00  ││                       │                         │        Filters:       ││                       │
+                         │    ws_net_paid>0.00   ││                       │                         │   cs_net_profit>1.00  ││                       │
+                         │     ws_quantity>0     ││                       │                         │    cs_net_paid>0.00   ││                       │
+                         │                       ││                       │                         │     cs_quantity>0     ││                       │
+                         │                       ││                       │                         │                       ││                       │
+                         │     ~143,876 rows     ││       ~542 rows       │                         │     ~288,309 rows     ││       ~542 rows       │
+                         └───────────────────────┘└───────────────────────┘                         └───────────────────────┘└───────────────────────┘

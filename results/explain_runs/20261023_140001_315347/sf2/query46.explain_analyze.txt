@@ -1,0 +1,238 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  c_last_name        ,c_first_name        ,ca_city        ,bought_city        ,ss_ticket_number        ,amt,profit   from    (select ss_ticket_number           ,ss_customer_sk           ,ca_city bought_city           ,sum(ss_coupon_amt) amt           ,sum(ss_net_profit) profit     from store_sales,date_dim,store,household_demographics,customer_address      where store_sales.ss_sold_date_sk = date_dim.d_date_sk     and store_sales.ss_store_sk = store.s_store_sk       and store_sales.ss_hdemo_sk = household_demographics.hd_demo_sk     and store_sales.ss_addr_sk = customer_address.ca_address_sk     and (household_demographics.hd_dep_count = 5 or          household_demographics.hd_vehicle_count= 3)     and date_dim.d_dow in (6,0)     and date_dim.d_year in (1999,1999+1,1999+2)      and store.s_city in ('Midway','Fairview','Fairview','Midway','Fairview')      group by ss_ticket_number,ss_customer_sk,ss_addr_sk,ca_city) dn,customer,customer_address current_addr     where ss_customer_sk = c_customer_sk       and customer.c_current_addr_sk = current_addr.ca_address_sk       and current_addr.ca_city <> bought_city   order by c_last_name           ,c_first_name           ,ca_city           ,bought_city           ,ss_ticket_number   limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.563s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  tpcds_sf2.main.customer  │
+│      .c_last_name ASC     │
+│  tpcds_sf2.main.customer  │
+│     .c_first_name ASC     │
+│  current_addr.ca_city ASC │
+│     dn.bought_city ASC    │
+│  dn.ss_ticket_number ASC  │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        c_last_name        │
+│        c_first_name       │
+│          ca_city          │
+│        bought_city        │
+│      ss_ticket_number     │
+│            amt            │
+│           profit          │
+│                           │
+│        19,586 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        │
+│      ca_address_sk =      ├──────────────┐
+│      c_current_addr_sk    │              │
+│   ca_city != bought_city  │              │
+│                           │              │
+│        19,586 rows        │              │
+│          (0.01s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│           Table:          ││      Join Type: INNER     │
+│      customer_address     ││                           │
+│                           ││        Conditions:        │
+│   Type: Sequential Scan   ││      c_customer_sk =      │
+│                           ││       ss_customer_sk      ├──────────────┐
+│        Projections:       ││                           │              │
+│       ca_address_sk       ││                           │              │
+│          ca_city          ││                           │              │
+│                           ││                           │              │
+│        71,995 rows        ││        20,928 rows        │              │
+│          (0.00s)          ││          (0.01s)          │              │
+└───────────────────────────┘└─────────────┬─────────────┘              │
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││         PROJECTION        │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │      Table: customer      ││      ss_ticket_number     │
+                             │   Type: Sequential Scan   ││       ss_customer_sk      │
+                             │                           ││        bought_city        │
+                             │        Projections:       ││            amt            │
+                             │       c_customer_sk       ││           profit          │
+                             │     c_current_addr_sk     ││                           │
+                             │        c_last_name        ││                           │
+                             │        c_first_name       ││                           │
+                             │                           ││                           │
+                             │        143,995 rows       ││        21,622 rows        │
+                             │          (0.02s)          ││          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │       HASH_GROUP_BY       │
+                                                          │    ────────────────────   │
+                                                          │          Groups:          │
+                                                          │             #0            │
+                                                          │             #1            │
+                                                          │             #2            │
+                                                          │             #3            │
+                                                          │                           │
+                                                          │        Aggregates:        │
+                                                          │          sum(#4)          │
+                                                          │          sum(#5)          │
+                                                          │                           │
+                                                          │        21,622 rows        │
+                                                          │          (0.03s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         PROJECTION        │
+                                                          │    ────────────────────   │
+                                                          │      ss_ticket_number     │
+                                                          │       ss_customer_sk      │
+                                                          │         ss_addr_sk        │
+                                                          │          ca_city          │
+                                                          │       ss_coupon_amt       │
+                                                          │       ss_net_profit       │
+                                                          │                           │
+                                                          │        230,428 rows       │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │
+                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │
+                                                          │                           │
+                                                          │        Conditions:        ├──────────────┐
+                                                          │ ca_address_sk = ss_addr_sk│              │
+                                                          │                           │              │
+                                                          │        230,428 rows       │              │
+                                                          │          (0.06s)          │              │
+                                                          └─────────────┬─────────────┘              │
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        ││         HASH_JOIN         │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │           Table:          ││      Join Type: INNER     │
+                                                          │      customer_address     ││                           │
+                                                          │                           ││        Conditions:        │
+                                                          │   Type: Sequential Scan   ││  ss_hdemo_sk = hd_demo_sk │
+                                                          │                           ││                           ├─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+                                                          │        Projections:       ││                           │                                                                                                     │
+                                                          │       ca_address_sk       ││                           │                                                                                                     │
+                                                          │          ca_city          ││                           │                                                                                                     │
+                                                          │                           ││                           │                                                                                                     │
+                                                          │        71,992 rows        ││        231,847 rows       │                                                                                                     │
+                                                          │          (0.01s)          ││          (0.02s)          │                                                                                                     │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘                                                                                                     │
+                                                                                       ┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+                                                                                       │         HASH_JOIN         │                                                                                       │         PROJECTION        │
+                                                                                       │    ────────────────────   │                                                                                       │    ────────────────────   │
+                                                                                       │      Join Type: INNER     │                                                                                       │             #0            │
+                                                                                       │                           │                                                                                       │                           │
+                                                                                       │        Conditions:        ├───────────────────────────────────────────┐                                           │                           │
+                                                                                       │  ss_store_sk = s_store_sk │                                           │                                           │                           │
+                                                                                       │                           │                                           │                                           │                           │
+                                                                                       │        782,565 rows       │                                           │                                           │         1,800 rows        │
+                                                                                       │          (0.01s)          │                                           │                                           │          (0.00s)          │
+                                                                                       └─────────────┬─────────────┘                                           │                                           └─────────────┬─────────────┘
+                                                                                       ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                                                                                       │         HASH_JOIN         │                             │         PROJECTION        │                             │           FILTER          │
+                                                                                       │    ────────────────────   │                             │    ────────────────────   │                             │    ────────────────────   │
+                                                                                       │      Join Type: INNER     │                             │             #0            │                             │  ((hd_dep_count = 5) OR   │
+                                                                                       │                           │                             │                           │                             │  (hd_vehicle_count = 3))  │
+                                                                                       │        Conditions:        ├──────────────┐              │                           │                             │                           │
+                                                                                       │ss_sold_date_sk = d_date_sk│              │              │                           │                             │                           │
+                                                                                       │                           │              │              │                           │                             │                           │
+                                                                                       │        782,565 rows       │              │              │          22 rows          │                             │         1,800 rows        │
+                                                                                       │          (0.03s)          │              │              │          (0.00s)          │                             │          (0.00s)          │
+                                                                                       └─────────────┬─────────────┘              │              └─────────────┬─────────────┘                             └─────────────┬─────────────┘
+                                                                                       ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                                                                                       │         TABLE_SCAN        ││           FILTER          ││           FILTER          │                             │         TABLE_SCAN        │
+                                                                                       │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │                             │    ────────────────────   │
+                                                                                       │     Table: store_sales    ││ (d_date_sk BETWEEN 2450816││          IN (...)         │                             │           Table:          │
+                                                                                       │   Type: Sequential Scan   ││        AND 2452642)       ││                           │                             │   household_demographics  │
+                                                                                       │                           ││                           ││                           │                             │                           │
+                                                                                       │        Projections:       ││                           ││                           │                             │   Type: Sequential Scan   │
+                                                                                       │      ss_sold_date_sk      ││                           ││                           │                             │                           │
+                                                                                       │        ss_store_sk        ││                           ││                           │                             │        Projections:       │
+                                                                                       │        ss_hdemo_sk        ││                           ││                           │                             │         hd_demo_sk        │
+                                                                                       │         ss_addr_sk        ││                           ││                           │                             │        hd_dep_count       │
+                                                                                       │      ss_ticket_number     ││                           ││                           │                             │      hd_vehicle_count     │
+                                                                                       │       ss_customer_sk      ││                           ││                           │                             │                           │
+                                                                                       │       ss_coupon_amt       ││                           ││                           │                             │                           │
+                                                                                       │       ss_net_profit       ││                           ││                           │                             │                           │
+                                                                                       │                           ││                           ││                           │                             │                           │
+                                                                                       │       2,688,896 rows      ││          314 rows         ││          22 rows          │                             │         7,200 rows        │
+                                                                                       │          (4.87s)          ││          (0.00s)          ││          (0.00s)          │                             │          (0.01s)          │
+                                                                                       └───────────────────────────┘└─────────────┬─────────────┘└─────────────┬─────────────┘                             └───────────────────────────┘
+                                                                                                                    ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                                                    │         PROJECTION        ││         HASH_JOIN         │
+                                                                                                                    │    ────────────────────   ││    ────────────────────   │
+                                                                                                                    │             #0            ││      Join Type: MARK      │
+                                                                                                                    │                           ││                           │
+                                                                                                                    │                           ││        Conditions:        ├──────────────┐
+                                                                                                                    │                           ││        s_city = #0        │              │
+                                                                                                                    │                           ││                           │              │
+                                                                                                                    │          314 rows         ││          22 rows          │              │
+                                                                                                                    │          (0.00s)          ││          (0.00s)          │              │
+                                                                                                                    └─────────────┬─────────────┘└─────────────┬─────────────┘              │
+                                                                                                                    ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                                                    │           FILTER          ││         TABLE_SCAN        ││      COLUMN_DATA_SCAN     │
+                                                                                                                    │    ────────────────────   ││    ────────────────────   ││                           │
+                                                                                                                    │ ((d_dow = 6) OR (d_dow = 0││        Table: store       ││                           │
+                                                                                                                    │             ))            ││   Type: Sequential Scan   ││                           │
+                                                                                                                    │                           ││                           ││                           │
+                                                                                                                    │                           ││        Projections:       ││                           │
+                                                                                                                    │                           ││         s_store_sk        ││                           │
+                                                                                                                    │                           ││           s_city          ││                           │
+                                                                                                                    │                           ││                           ││                           │
+                                                                                                                    │                           ││          Filters:         ││                           │
+                                                                                                                    │                           ││   optional: s_city IN (   ││                           │
+                                                                                                                    │                           ││   'Midway', 'Fairview',   ││                           │
+                                                                                                                    │                           ││   'Fairview', 'Midway',   ││                           │
+                                                                                                                    │                           ││        'Fairview')        ││                           │
+                                                                                                                    │                           ││                           ││                           │
+                                                                                                                    │          314 rows         ││          22 rows          ││           5 rows          │
+                                                                                                                    │          (0.00s)          ││          (0.01s)          ││          (0.00s)          │
+                                                                                                                    └─────────────┬─────────────┘└───────────────────────────┘└───────────────────────────┘
+                                                                                                                    ┌─────────────┴─────────────┐
+                                                                                                                    │         TABLE_SCAN        │
+                                                                                                                    │    ────────────────────   │
+                                                                                                                    │      Table: date_dim      │
+                                                                                                                    │   Type: Sequential Scan   │
+                                                                                                                    │                           │
+                                                                                                                    │        Projections:       │
+                                                                                                                    │         d_date_sk         │
+                                                                                                                    │           d_dow           │
+                                                                                                                    │                           │
+                                                                                                                    │          Filters:         │
+                                                                                                                    │ optional: d_dow IN (0, 6) │
+                                                                                                                    │  d_year>=1999 AND d_year< │
+                                                                                                                    │           =2001           │
+                                                                                                                    │                           │
+                                                                                                                    │         1,096 rows        │
+                                                                                                                    │          (0.01s)          │
+                                                                                                                    └───────────────────────────┘

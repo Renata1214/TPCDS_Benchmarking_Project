@@ -1,0 +1,139 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  i_item_id        ,i_item_desc        ,i_current_price  from item, inventory, date_dim, store_sales  where i_current_price between 30 and 30+30  and inv_item_sk = i_item_sk  and d_date_sk=inv_date_sk  and d_date between cast('2002-05-30' as date) and (cast('2002-05-30' as date) + INTERVAL '60 days')  and i_manufact_id in (437,129,727,663)  and inv_quantity_on_hand between 100 and 500  and ss_item_sk = i_item_sk  group by i_item_id,i_item_desc,i_current_price  order by i_item_id  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0477s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│    tpcds_sf8.main.item    │
+│       .i_item_id ASC      │
+│                           │
+│           9 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│                           │
+│           9 rows          │
+│          (0.02s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_item_id         │
+│        i_item_desc        │
+│      i_current_price      │
+│                           │
+│        81,627 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│   ss_item_sk = i_item_sk  │              │
+│                           │              │
+│        81,627 rows        │              │
+│          (0.18s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││      Join Type: INNER     │
+│   Type: Sequential Scan   ││                           │
+│                           ││        Conditions:        │
+│        Projections:       ││  inv_date_sk = d_date_sk  ├───────────────────────────────────────────┐
+│         ss_item_sk        ││                           │                                           │
+│                           ││                           │                                           │
+│      19,886,943 rows      ││          237 rows         │                                           │
+│          (0.13s)          ││          (0.00s)          │                                           │
+└───────────────────────────┘└─────────────┬─────────────┘                                           │
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                             │           FILTER          │
+                             │    ────────────────────   │                             │    ────────────────────   │
+                             │      Join Type: INNER     │                             │ (d_date_sk BETWEEN 2450815│
+                             │                           │                             │        AND 2452635)       │
+                             │        Conditions:        ├──────────────┐              │                           │
+                             │  inv_item_sk = i_item_sk  │              │              │                           │
+                             │                           │              │              │                           │
+                             │          237 rows         │              │              │          61 rows          │
+                             │          (0.01s)          │              │              │          (0.00s)          │
+                             └─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││         PROJECTION        ││         TABLE_SCAN        │
+                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                             │      Table: inventory     ││             #0            ││      Table: date_dim      │
+                             │   Type: Sequential Scan   ││             #1            ││   Type: Sequential Scan   │
+                             │                           ││             #3            ││                           │
+                             │        Projections:       ││             #4            ││        Projections:       │
+                             │        inv_item_sk        ││                           ││         d_date_sk         │
+                             │        inv_date_sk        ││                           ││                           │
+                             │                           ││                           ││          Filters:         │
+                             │          Filters:         ││                           ││ (CAST(d_date AS TIMESTAMP)│
+                             │ inv_quantity_on_hand>=100 ││                           ││  BETWEEN '2002-05-30 00:00│
+                             │  AND inv_quantity_on_hand<││                           ││ :00'::TIMESTAMP AND '2002 │
+                             │            =500           ││                           ││     -07-29 00:00:00':     │
+                             │                           ││                           ││        :TIMESTAMP)        │
+                             │                           ││                           ││                           │
+                             │        970,342 rows       ││          15 rows          ││          61 rows          │
+                             │          (0.03s)          ││          (0.00s)          ││          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │           FILTER          │
+                                                          │    ────────────────────   │
+                                                          │ ((i_manufact_id = 437) OR │
+                                                          │ (i_manufact_id = 129) OR  │
+                                                          │ (i_manufact_id = 727) OR  │
+                                                          │   (i_manufact_id = 663))  │
+                                                          │                           │
+                                                          │          15 rows          │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        │
+                                                          │    ────────────────────   │
+                                                          │        Table: item        │
+                                                          │   Type: Sequential Scan   │
+                                                          │                           │
+                                                          │        Projections:       │
+                                                          │      i_current_price      │
+                                                          │         i_item_sk         │
+                                                          │       i_manufact_id       │
+                                                          │         i_item_id         │
+                                                          │        i_item_desc        │
+                                                          │                           │
+                                                          │          Filters:         │
+                                                          │ i_current_price>=30.00 AND│
+                                                          │   i_current_price<=60.00  │
+                                                          │ optional: i_manufact_id IN│
+                                                          │    (129, 437, 663, 727)   │
+                                                          │                           │
+                                                          │         2,721 rows        │
+                                                          │          (0.01s)          │
+                                                          └───────────────────────────┘

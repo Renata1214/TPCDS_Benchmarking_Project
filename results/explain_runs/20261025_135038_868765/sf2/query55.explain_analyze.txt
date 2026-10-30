@@ -1,0 +1,125 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  i_brand_id brand_id, i_brand brand,  	sum(ss_ext_sales_price) ext_price  from date_dim, store_sales, item  where d_date_sk = ss_sold_date_sk  	and ss_item_sk = i_item_sk  	and i_manager_id=36  	and d_moy=12  	and d_year=2001  group by i_brand, i_brand_id  order by ext_price desc, i_brand_id limit 100 ;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0127s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│     sum(tpcds_sf2.main    │
+│        .store_sales       │
+│ .ss_ext_sales_price) DESC │
+│    tpcds_sf2.main.item    │
+│      .i_brand_id ASC      │
+│                           │
+│          98 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          brand_id         │
+│           brand           │
+│         ext_price         │
+│                           │
+│          98 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│    Aggregates: sum(#2)    │
+│                           │
+│          98 rows          │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          i_brand          │
+│         i_brand_id        │
+│     ss_ext_sales_price    │
+│                           │
+│         1,622 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├───────────────────────────────────────────┐
+│   ss_item_sk = i_item_sk  │                                           │
+│                           │                                           │
+│         1,622 rows        │                                           │
+│          (0.00s)          │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         TABLE_SCAN        │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │        Table: item        │
+│                           │                             │   Type: Sequential Scan   │
+│        Conditions:        │                             │                           │
+│ss_sold_date_sk = d_date_sk│                             │        Projections:       │
+│                           │                             │         i_item_sk         │
+│                           ├──────────────┐              │          i_brand          │
+│                           │              │              │         i_brand_id        │
+│                           │              │              │                           │
+│                           │              │              │          Filters:         │
+│                           │              │              │      i_manager_id=36      │
+│                           │              │              │                           │
+│        183,428 rows       │              │              │          238 rows         │
+│          (0.01s)          │              │              │          (0.00s)          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││           FILTER          │
+│    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││ (d_date_sk BETWEEN 2450816│
+│   Type: Sequential Scan   ││        AND 2452642)       │
+│                           ││                           │
+│        Projections:       ││                           │
+│      ss_sold_date_sk      ││                           │
+│         ss_item_sk        ││                           │
+│     ss_ext_sales_price    ││                           │
+│                           ││                           │
+│        183,428 rows       ││          31 rows          │
+│          (0.05s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        │
+                             │    ────────────────────   │
+                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         d_date_sk         │
+                             │                           │
+                             │          Filters:         │
+                             │          d_moy=12         │
+                             │        d_year=2001        │
+                             │                           │
+                             │          31 rows          │
+                             │          (0.00s)          │
+                             └───────────────────────────┘

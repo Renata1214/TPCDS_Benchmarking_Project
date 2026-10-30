@@ -35,17 +35,24 @@
 
 define _LIMIT=100;
 define DMS = random(1176,1224,uniform); 
+with item_inventory as (
+    select inv_item_sk
+          ,sum(inv_quantity_on_hand) as quantity_sum
+          ,count(inv_quantity_on_hand) as quantity_count
+    from inventory
+    join date_dim
+      on inv_date_sk = d_date_sk
+    where d_month_seq between [DMS] and [DMS] + 11
+    group by inv_item_sk
+)
 [_LIMITA] select [_LIMITB] i_product_name
              ,i_brand
              ,i_class
              ,i_category
-             ,avg(inv_quantity_on_hand) qoh
-       from inventory
-           ,date_dim
-           ,item
-       where inv_date_sk=d_date_sk
-              and inv_item_sk=i_item_sk
-              and d_month_seq between [DMS] and [DMS] + 11
+             ,sum(quantity_sum) / nullif(sum(quantity_count), 0) qoh
+       from item_inventory
+       join item
+         on inv_item_sk = i_item_sk
        group by rollup(i_product_name
                        ,i_brand
                        ,i_class

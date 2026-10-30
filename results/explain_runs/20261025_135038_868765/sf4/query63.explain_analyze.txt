@@ -1,0 +1,235 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  *  from (select i_manager_id              ,sum(ss_sales_price) sum_sales              ,avg(sum(ss_sales_price)) over (partition by i_manager_id) avg_monthly_sales       from item           ,store_sales           ,date_dim           ,store       where ss_item_sk = i_item_sk         and ss_sold_date_sk = d_date_sk         and ss_store_sk = s_store_sk         and d_month_seq in (1212,1212+1,1212+2,1212+3,1212+4,1212+5,1212+6,1212+7,1212+8,1212+9,1212+10,1212+11)         and ((    i_category in ('Books','Children','Electronics')               and i_class in ('personal','portable','reference','self-help')               and i_brand in ('scholaramalgamalg #14','scholaramalgamalg #7', 		                  'exportiunivamalg #9','scholaramalgamalg #9'))            or(    i_category in ('Women','Music','Men')               and i_class in ('accessories','classical','fragrances','pants')               and i_brand in ('amalgimporto #1','edu packscholar #1','exportiimporto #1', 		                 'importoamalg #1'))) group by i_manager_id, d_moy) tmp1 where case when avg_monthly_sales > 0 then abs (sum_sales - avg_monthly_sales) / avg_monthly_sales else null end > 0.1 order by i_manager_id         ,avg_monthly_sales         ,sum_sales limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0296s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│   tmp1.i_manager_id ASC   │
+│ tmp1.avg_monthly_sales ASC│
+│     tmp1.sum_sales ASC    │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│       (CASE  WHEN (       │
+│ (avg_monthly_sales > 0.0))│
+│      THEN ((abs((CAST     │
+│  (sum_sales AS DOUBLE) -  │
+│    avg_monthly_sales)) /  │
+│  avg_monthly_sales)) ELSE │
+│       NULL END > 0.1)     │
+│                           │
+│          195 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        i_manager_id       │
+│         sum_sales         │
+│     avg_monthly_sales     │
+│                           │
+│          216 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│          216 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│  avg(sum(ss_sales_price)) │
+│     OVER (PARTITION BY    │
+│        i_manager_id)      │
+│                           │
+│          216 rows         │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_integ│
+│     ral_integer(#0, 1)    │
+│__internal_decompress_integ│
+│     ral_integer(#1, 1)    │
+│             #2            │
+│                           │
+│          216 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│   PERFECT_HASH_GROUP_BY   │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│    Aggregates: sum(#2)    │
+│                           │
+│          216 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        i_manager_id       │
+│           d_moy           │
+│       ss_sales_price      │
+│                           │
+│         2,039 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_compress_integra│
+│     l_utinyint(#1, 1)     │
+│             #0            │
+│__internal_compress_integra│
+│     l_utinyint(#2, 1)     │
+│__internal_compress_integra│
+│     l_utinyint(#3, 1)     │
+│                           │
+│         2,039 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+│  ss_store_sk = s_store_sk │                                                                        │
+│                           │                                                                        │
+│         2,039 rows        │                                                                        │
+│          (0.00s)          │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         TABLE_SCAN        │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │        Table: store       │
+│                           │                                                          │      Type: Index Scan     │
+│        Conditions:        │                                                          │                           │
+│ss_sold_date_sk = d_date_sk│                                                          │        Projections:       │
+│                           ├───────────────────────────────────────────┐              │         s_store_sk        │
+│                           │                                           │              │                           │
+│                           │                                           │              │          Filters:         │
+│                           │                                           │              │       s_store_sk<=40      │
+│                           │                                           │              │                           │
+│         2,039 rows        │                                           │              │          40 rows          │
+│          (0.00s)          │                                           │              │          (0.00s)          │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │           FILTER          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │ (d_date_sk BETWEEN 2450816│
+│                           │                             │        AND 2452642)       │
+│        Conditions:        ├──────────────┐              │                           │
+│   ss_item_sk = i_item_sk  │              │              │                           │
+│                           │              │              │                           │
+│         2,039 rows        │              │              │          365 rows         │
+│          (0.03s)          │              │              │          (0.00s)          │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         PROJECTION        ││         TABLE_SCAN        │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││             #0            ││      Table: date_dim      │
+│   Type: Sequential Scan   ││             #4            ││   Type: Sequential Scan   │
+│                           ││                           ││                           │
+│        Projections:       ││                           ││        Projections:       │
+│         ss_item_sk        ││                           ││         d_date_sk         │
+│      ss_sold_date_sk      ││                           ││           d_moy           │
+│        ss_store_sk        ││                           ││                           │
+│       ss_sales_price      ││                           ││          Filters:         │
+│                           ││                           ││   d_month_seq>=1212 AND   │
+│                           ││                           ││      d_month_seq<=1223    │
+│                           ││                           ││                           │
+│       2,136,631 rows      ││         2,429 rows        ││          365 rows         │
+│          (0.16s)          ││          (0.00s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘└───────────────────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ ((((i_category = 'Books') │
+                             │      OR (i_category =     │
+                             │ 'Children') OR (i_category│
+                             │   = 'Electronics')) AND ( │
+                             │ (i_class = 'personal') OR │
+                             │ (i_class = 'portable') OR │
+                             │ (i_class = 'reference') OR│
+                             │  (i_class = 'self-help')) │
+                             │      AND ((i_brand =      │
+                             │  'scholaramalgamalg #14') │
+                             │       OR (i_brand =       │
+                             │ 'scholaramalgamalg #7') OR│
+                             │         (i_brand =        │
+                             │ 'exportiunivamalg #9') OR │
+                             │        (i_brand =         │
+                             │ 'scholaramalgamalg #9'))) │
+                             │  OR (((i_category = 'Women│
+                             │ ') OR (i_category = 'Music│
+                             │ ') OR (i_category = 'Men')│
+                             │     ) AND ((i_class =     │
+                             │ 'accessories') OR (i_class│
+                             │     = 'classical') OR     │
+                             │  (i_class = 'fragrances') │
+                             │   OR (i_class = 'pants')) │
+                             │      AND ((i_brand =      │
+                             │   'amalgimporto #1') OR   │
+                             │      (i_brand = 'edu      │
+                             │    packscholar #1') OR    │
+                             │ (i_brand = 'exportiimporto│
+                             │     #1') OR (i_brand =    │
+                             │   'importoamalg #1'))))   │
+                             │                           │
+                             │         2,429 rows        │
+                             │          (0.00s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        │
+                             │    ────────────────────   │
+                             │        Table: item        │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         i_item_sk         │
+                             │         i_category        │
+                             │          i_class          │
+                             │          i_brand          │
+                             │        i_manager_id       │
+                             │                           │
+                             │        46,000 rows        │
+                             │          (0.00s)          │
+                             └───────────────────────────┘

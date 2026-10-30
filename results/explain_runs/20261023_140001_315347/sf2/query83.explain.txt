@@ -1,0 +1,243 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌─────────────┐
+│    TOP_N    │
+│    ──────   │
+│     Top:    │
+│     100     │
+│             │
+│  Order By:  │
+│   sr_items  │
+│ .item_id ASC│
+│   sr_items  │
+│ .sr_item_qty│
+│      ASC    │
+└──────┬──────┘
+┌──────┴──────┐
+│  PROJECTION │
+│    ──────   │
+│   item_id   │
+│ sr_item_qty │
+│    sr_dev   │
+│ cr_item_qty │
+│    cr_dev   │
+│ wr_item_qty │
+│    wr_dev   │
+│   average   │
+│             │
+│   ~4 rows   │
+└──────┬──────┘
+┌──────┴──────┐
+│  PROJECTION │
+│    ──────   │
+│   item_id   │
+│ sr_item_qty │
+│CAST(((sr_ite│
+│m_qty + cr_it│
+│  em_qty) +  │
+│  wr_item_qty│
+│ ) AS DOUBLE)│
+│ cr_item_qty │
+│ wr_item_qty │
+│             │
+│   ~4 rows   │
+└──────┬──────┘
+┌──────┴──────┐
+│  HASH_JOIN  │
+│    ──────   │
+│  Join Type: │
+│    INNER    │
+│             │
+│ Conditions: ├───────────────────────────────────────────────────────────────────┐
+│  item_id =  │                                                                   │
+│    item_id  │                                                                   │
+│             │                                                                   │
+│   ~4 rows   │                                                                   │
+└──────┬──────┘                                                                   │
+┌──────┴──────┐                                                            ┌──────┴──────┐
+│HASH_GROUP_BY│                                                            │  HASH_JOIN  │
+│    ──────   │                                                            │    ──────   │
+│   Groups:   │                                                            │  Join Type: │
+│      #0     │                                                            │    INNER    │
+│             │                                                            │             │
+│ Aggregates: │                                                            │ Conditions: ├───────────────────────────────────────────────────────────────────┐
+│   sum(#1)   │                                                            │  item_id =  │                                                                   │
+│             │                                                            │    item_id  │                                                                   │
+│             │                                                            │             │                                                                   │
+│ ~2,243 rows │                                                            │  ~140 rows  │                                                                   │
+└──────┬──────┘                                                            └──────┬──────┘                                                                   │
+┌──────┴──────┐                                                            ┌──────┴──────┐                                                            ┌──────┴──────┐
+│  PROJECTION │                                                            │HASH_GROUP_BY│                                                            │HASH_GROUP_BY│
+│    ──────   │                                                            │    ──────   │                                                            │    ──────   │
+│  i_item_id  │                                                            │   Groups:   │                                                            │   Groups:   │
+│cr_return_qua│                                                            │      #0     │                                                            │      #0     │
+│    ntity    │                                                            │             │                                                            │             │
+│             │                                                            │ Aggregates: │                                                            │ Aggregates: │
+│             │                                                            │   sum(#1)   │                                                            │   sum(#1)   │
+│             │                                                            │             │                                                            │             │
+│ ~65,532 rows│                                                            │ ~2,202 rows │                                                            │ ~2,193 rows │
+└──────┬──────┘                                                            └──────┬──────┘                                                            └──────┬──────┘
+┌──────┴──────┐                                                            ┌──────┴──────┐                                                            ┌──────┴──────┐
+│  HASH_JOIN  │                                                            │  PROJECTION │                                                            │  PROJECTION │
+│    ──────   │                                                            │    ──────   │                                                            │    ──────   │
+│  Join Type: │                                                            │  i_item_id  │                                                            │  i_item_id  │
+│    INNER    │                                                            │sr_return_qua│                                                            │wr_return_qua│
+│             │                                                            │    ntity    │                                                            │    ntity    │
+│ Conditions: ├────────────────────────────────────────────────────┐       │             │                                                            │             │
+│ cr_item_sk =│                                                    │       │             │                                                            │             │
+│   i_item_sk │                                                    │       │             │                                                            │             │
+│             │                                                    │       │             │                                                            │             │
+│ ~65,532 rows│                                                    │       │~151,637 rows│                                                            │ ~29,832 rows│
+└──────┬──────┘                                                    │       └──────┬──────┘                                                            └──────┬──────┘
+┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐
+│  HASH_JOIN  │                                             │  SEQ_SCAN   ││  HASH_JOIN  │                                                            │  HASH_JOIN  │
+│    ──────   │                                             │    ──────   ││    ──────   │                                                            │    ──────   │
+│  Join Type: │                                             │    Table:   ││  Join Type: │                                                            │  Join Type: │
+│    INNER    │                                             │     item    ││    INNER    │                                                            │    INNER    │
+│             │                                             │             ││             │                                                            │             │
+│ Conditions: │                                             │    Type:    ││ Conditions: │                                                            │ Conditions: │
+│cr_returned_d│                                             │  Sequential ││ sr_item_sk =│                                                            │ i_item_sk = │
+│   ate_sk =  ├───────┐                                     │     Scan    ││   i_item_sk ├────────────────────────────────────────────────────┐       │  wr_item_sk ├───────┐
+│   d_date_sk │       │                                     │             ││             │                                                    │       │             │       │
+│             │       │                                     │ Projections:││             │                                                    │       │             │       │
+│             │       │                                     │  i_item_sk  ││             │                                                    │       │             │       │
+│             │       │                                     │  i_item_id  ││             │                                                    │       │             │       │
+│             │       │                                     │             ││             │                                                    │       │             │       │
+│ ~79,403 rows│       │                                     │ ~26,000 rows││~151,637 rows│                                                    │       │ ~29,832 rows│       │
+└──────┬──────┘       │                                     └─────────────┘└──────┬──────┘                                                    │       └──────┬──────┘       │
+┌──────┴──────┐┌──────┴──────┐                                             ┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  SEQ_SCAN   ││  HASH_JOIN  │                                             │  HASH_JOIN  │                                             │  SEQ_SCAN   ││  SEQ_SCAN   ││  HASH_JOIN  │
+│    ──────   ││    ──────   │                                             │    ──────   │                                             │    ──────   ││    ──────   ││    ──────   │
+│    Table:   ││  Join Type: │                                             │  Join Type: │                                             │    Table:   ││    Table:   ││  Join Type: │
+│catalog_retur││     SEMI    │                                             │    INNER    │                                             │     item    ││     item    ││    INNER    │
+│      ns     ││             │                                             │             │                                             │             ││             ││             │
+│             ││ Conditions: │                                             │ Conditions: │                                             │    Type:    ││    Type:    ││ Conditions: │
+│    Type:    ││ d_date = #0 │                                             │sr_returned_d│                                             │  Sequential ││  Sequential ││wr_returned_d│
+│  Sequential ││             │                                             │   ate_sk =  │                                             │     Scan    ││     Scan    ││   ate_sk =  │
+│     Scan    ││             │                                             │   d_date_sk │                                             │             ││             ││   d_date_sk │
+│             ││             ├───────┐                                     │             ├───────┐                                     │ Projections:││ Projections:││             ├───────┐
+│ Projections:││             │       │                                     │             │       │                                     │  i_item_sk  ││  i_item_sk  ││             │       │
+│  cr_item_sk ││             │       │                                     │             │       │                                     │  i_item_id  ││  i_item_id  ││             │       │
+│cr_returned_d││             │       │                                     │             │       │                                     │             ││             ││             │       │
+│    ate_sk   ││             │       │                                     │             │       │                                     │             ││             ││             │       │
+│cr_return_qua││             │       │                                     │             │       │                                     │             ││             ││             │       │
+│    ntity    ││             │       │                                     │             │       │                                     │             ││             ││             │       │
+│             ││             │       │                                     │             │       │                                     │             ││             ││             │       │
+│~288,491 rows││ ~14,609 rows│       │                                     │~158,339 rows│       │                                     │ ~26,000 rows││ ~26,000 rows││ ~39,531 rows│       │
+└─────────────┘└──────┬──────┘       │                                     └──────┬──────┘       │                                     └─────────────┘└─────────────┘└──────┬──────┘       │
+               ┌──────┴──────┐┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐
+               │  SEQ_SCAN   ││  HASH_JOIN  │                              │  SEQ_SCAN   ││  HASH_JOIN  │                                                            │  SEQ_SCAN   ││  HASH_JOIN  │
+               │    ──────   ││    ──────   │                              │    ──────   ││    ──────   │                                                            │    ──────   ││    ──────   │
+               │    Table:   ││  Join Type: │                              │    Table:   ││  Join Type: │                                                            │    Table:   ││  Join Type: │
+               │   date_dim  ││     SEMI    │                              │store_returns││     SEMI    │                                                            │ web_returns ││     SEMI    │
+               │             ││             │                              │             ││             │                                                            │             ││             │
+               │    Type:    ││ Conditions: │                              │    Type:    ││ Conditions: │                                                            │    Type:    ││ Conditions: │
+               │  Sequential ││ d_week_seq =│                              │  Sequential ││ d_date = #0 │                                                            │  Sequential ││ d_date = #0 │
+               │     Scan    ││      #0     │                              │     Scan    ││             │                                                            │     Scan    ││             │
+               │             ││             │                              │             ││             │                                                            │             ││             │
+               │ Projections:││             │                              │ Projections:││             │                                                            │ Projections:││             │
+               │    d_date   ││             ├───────┐                      │  sr_item_sk ││             ├───────┐                                                    │  wr_item_sk ││             ├───────┐
+               │  d_date_sk  ││             │       │                      │sr_returned_d││             │       │                                                    │wr_returned_d││             │       │
+               │             ││             │       │                      │    ate_sk   ││             │       │                                                    │    ate_sk   ││             │       │
+               │   Filters:  ││             │       │                      │sr_return_qua││             │       │                                                    │wr_return_qua││             │       │
+               │  d_date_sk> ││             │       │                      │    ntity    ││             │       │                                                    │    ntity    ││             │       │
+               │ =2450821 AND││             │       │                      │             ││             │       │                                                    │             ││             │       │
+               │  d_date_sk< ││             │       │                      │             ││             │       │                                                    │             ││             │       │
+               │   =2452917  ││             │       │                      │             ││             │       │                                                    │             ││             │       │
+               │             ││             │       │                      │             ││             │       │                                                    │             ││             │       │
+               │ ~73,049 rows││ ~14,609 rows│       │                      │~575,285 rows││ ~14,609 rows│       │                                                    │~143,629 rows││ ~14,609 rows│       │
+               └─────────────┘└──────┬──────┘       │                      └─────────────┘└──────┬──────┘       │                                                    └─────────────┘└──────┬──────┘       │
+                              ┌──────┴──────┐┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐
+                              │  SEQ_SCAN   ││  PROJECTION │                              │  SEQ_SCAN   ││  HASH_JOIN  │                                                            │  SEQ_SCAN   ││  HASH_JOIN  │
+                              │    ──────   ││    ──────   │                              │    ──────   ││    ──────   │                                                            │    ──────   ││    ──────   │
+                              │    Table:   ││      #1     │                              │    Table:   ││  Join Type: │                                                            │    Table:   ││  Join Type: │
+                              │   date_dim  ││             │                              │   date_dim  ││     SEMI    │                                                            │   date_dim  ││     SEMI    │
+                              │             ││             │                              │             ││             │                                                            │             ││             │
+                              │    Type:    ││             │                              │    Type:    ││ Conditions: │                                                            │    Type:    ││ Conditions: │
+                              │  Sequential ││             │                              │  Sequential ││ d_week_seq =│                                                            │  Sequential ││ d_week_seq =│
+                              │     Scan    ││             │                              │     Scan    ││      #0     │                                                            │     Scan    ││      #0     │
+                              │             ││             │                              │             ││             │                                                            │             ││             │
+                              │ Projections:││             │                              │ Projections:││             │                                                            │ Projections:││             │
+                              │  d_week_seq ││             │                              │    d_date   ││             ├───────┐                                                    │    d_date   ││             ├───────┐
+                              │    d_date   ││             │                              │  d_date_sk  ││             │       │                                                    │  d_date_sk  ││             │       │
+                              │             ││             │                              │             ││             │       │                                                    │             ││             │       │
+                              │             ││             │                              │   Filters:  ││             │       │                                                    │   Filters:  ││             │       │
+                              │             ││             │                              │  d_date_sk> ││             │       │                                                    │  d_date_sk> ││             │       │
+                              │             ││             │                              │ =2450820 AND││             │       │                                                    │ =2450840 AND││             │       │
+                              │             ││             │                              │  d_date_sk< ││             │       │                                                    │  d_date_sk< ││             │       │
+                              │             ││             │                              │   =2452822  ││             │       │                                                    │   =2452995  ││             │       │
+                              │             ││             │                              │             ││             │       │                                                    │             ││             │       │
+                              │ ~73,049 rows││ ~14,609 rows│                              │ ~73,049 rows││ ~14,609 rows│       │                                                    │ ~73,049 rows││ ~14,609 rows│       │
+                              └─────────────┘└──────┬──────┘                              └─────────────┘└──────┬──────┘       │                                                    └─────────────┘└──────┬──────┘       │
+                                             ┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐
+                                             │    FILTER   │                                             │  SEQ_SCAN   ││  PROJECTION │                                                            │  SEQ_SCAN   ││  PROJECTION │
+                                             │    ──────   │                                             │    ──────   ││    ──────   │                                                            │    ──────   ││    ──────   │
+                                             │ ((d_date =  │                                             │    Table:   ││      #1     │                                                            │    Table:   ││      #1     │
+                                             │ '1998-01-02'│                                             │   date_dim  ││             │                                                            │   date_dim  ││             │
+                                             │ ::DATE) OR  │                                             │             ││             │                                                            │             ││             │
+                                             │  (d_date =  │                                             │    Type:    ││             │                                                            │    Type:    ││             │
+                                             │ '1998-10-15'│                                             │  Sequential ││             │                                                            │  Sequential ││             │
+                                             │ ::DATE) OR  │                                             │     Scan    ││             │                                                            │     Scan    ││             │
+                                             │  (d_date =  │                                             │             ││             │                                                            │             ││             │
+                                             │ '1998-11-10'│                                             │ Projections:││             │                                                            │ Projections:││             │
+                                             │   ::DATE))  │                                             │  d_week_seq ││             │                                                            │  d_week_seq ││             │
+                                             │             │                                             │    d_date   ││             │                                                            │    d_date   ││             │
+                                             │             │                                             │             ││             │                                                            │             ││             │
+                                             │ ~14,609 rows│                                             │ ~73,049 rows││ ~14,609 rows│                                                            │ ~73,049 rows││ ~14,609 rows│
+                                             └──────┬──────┘                                             └─────────────┘└──────┬──────┘                                                            └─────────────┘└──────┬──────┘
+                                             ┌──────┴──────┐                                                            ┌──────┴──────┐                                                                           ┌──────┴──────┐
+                                             │  SEQ_SCAN   │                                                            │    FILTER   │                                                                           │    FILTER   │
+                                             │    ──────   │                                                            │    ──────   │                                                                           │    ──────   │
+                                             │    Table:   │                                                            │ ((d_date =  │                                                                           │ ((d_date =  │
+                                             │   date_dim  │                                                            │ '1998-01-02'│                                                                           │ '1998-01-02'│
+                                             │             │                                                            │ ::DATE) OR  │                                                                           │ ::DATE) OR  │
+                                             │    Type:    │                                                            │  (d_date =  │                                                                           │  (d_date =  │
+                                             │  Sequential │                                                            │ '1998-10-15'│                                                                           │ '1998-10-15'│
+                                             │     Scan    │                                                            │ ::DATE) OR  │                                                                           │ ::DATE) OR  │
+                                             │             │                                                            │  (d_date =  │                                                                           │  (d_date =  │
+                                             │ Projections:│                                                            │ '1998-11-10'│                                                                           │ '1998-11-10'│
+                                             │    d_date   │                                                            │   ::DATE))  │                                                                           │   ::DATE))  │
+                                             │  d_week_seq │                                                            │             │                                                                           │             │
+                                             │             │                                                            │             │                                                                           │             │
+                                             │   Filters:  │                                                            │             │                                                                           │             │
+                                             │  optional:  │                                                            │             │                                                                           │             │
+                                             │  d_date IN (│                                                            │             │                                                                           │             │
+                                             │ '1998-01-02'│                                                            │             │                                                                           │             │
+                                             │   ::DATE,   │                                                            │             │                                                                           │             │
+                                             │ '1998-10-15'│                                                            │             │                                                                           │             │
+                                             │   ::DATE,   │                                                            │             │                                                                           │             │
+                                             │ '1998-11-10'│                                                            │             │                                                                           │             │
+                                             │   ::DATE)   │                                                            │             │                                                                           │             │
+                                             │             │                                                            │             │                                                                           │             │
+                                             │ ~73,049 rows│                                                            │ ~14,609 rows│                                                                           │ ~14,609 rows│
+                                             └─────────────┘                                                            └──────┬──────┘                                                                           └──────┬──────┘
+                                                                                                                        ┌──────┴──────┐                                                                           ┌──────┴──────┐
+                                                                                                                        │  SEQ_SCAN   │                                                                           │  SEQ_SCAN   │
+                                                                                                                        │    ──────   │                                                                           │    ──────   │
+                                                                                                                        │    Table:   │                                                                           │    Table:   │
+                                                                                                                        │   date_dim  │                                                                           │   date_dim  │
+                                                                                                                        │             │                                                                           │             │
+                                                                                                                        │    Type:    │                                                                           │    Type:    │
+                                                                                                                        │  Sequential │                                                                           │  Sequential │
+                                                                                                                        │     Scan    │                                                                           │     Scan    │
+                                                                                                                        │             │                                                                           │             │
+                                                                                                                        │ Projections:│                                                                           │ Projections:│
+                                                                                                                        │    d_date   │                                                                           │    d_date   │
+                                                                                                                        │  d_week_seq │                                                                           │  d_week_seq │
+                                                                                                                        │             │                                                                           │             │
+                                                                                                                        │   Filters:  │                                                                           │   Filters:  │
+                                                                                                                        │  optional:  │                                                                           │  optional:  │
+                                                                                                                        │  d_date IN (│                                                                           │  d_date IN (│
+                                                                                                                        │ '1998-01-02'│                                                                           │ '1998-01-02'│
+                                                                                                                        │   ::DATE,   │                                                                           │   ::DATE,   │
+                                                                                                                        │ '1998-10-15'│                                                                           │ '1998-10-15'│
+                                                                                                                        │   ::DATE,   │                                                                           │   ::DATE,   │
+                                                                                                                        │ '1998-11-10'│                                                                           │ '1998-11-10'│
+                                                                                                                        │   ::DATE)   │                                                                           │   ::DATE)   │
+                                                                                                                        │             │                                                                           │             │
+                                                                                                                        │ ~73,049 rows│                                                                           │ ~73,049 rows│
+                                                                                                                        └─────────────┘                                                                           └─────────────┘

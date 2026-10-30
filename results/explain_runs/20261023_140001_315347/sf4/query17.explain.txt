@@ -1,0 +1,230 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│    tpcds_sf4.main.item    │
+│       .i_item_id ASC      │
+│    tpcds_sf4.main.item    │
+│      .i_item_desc ASC     │
+│    tpcds_sf4.main.store   │
+│        .s_state ASC       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_item_id         │
+│        i_item_desc        │
+│          s_state          │
+│ store_sales_quantitycount │
+│  store_sales_quantityave  │
+│ store_sales_quantitystdev │
+│  store_sales_quantitycov  │
+│store_returns_quantitycount│
+│ store_returns_quantityave │
+│store_returns_quantitystdev│
+│ store_returns_quantitycov │
+│catalog_sales_quantitycount│
+│ catalog_sales_quantityave │
+│catalog_sales_quantitystdev│
+│ catalog_sales_quantitycov │
+│                           │
+│       ~911,432 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│__internal_decompress_strin│
+│           g(#2)           │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│            #10            │
+│            #11            │
+│                           │
+│       ~911,432 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│                           │
+│        Aggregates:        │
+│         count(#3)         │
+│          avg(#4)          │
+│      stddev_samp(#5)      │
+│         count(#6)         │
+│          avg(#7)          │
+│      stddev_samp(#8)      │
+│         count(#9)         │
+│          avg(#10)         │
+│      stddev_samp(#11)     │
+│                           │
+│       ~911,432 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_item_id         │
+│        i_item_desc        │
+│          s_state          │
+│        ss_quantity        │
+│        ss_quantity        │
+│CAST(ss_quantity AS DOUBLE)│
+│     sr_return_quantity    │
+│     sr_return_quantity    │
+│ CAST(sr_return_quantity AS│
+│           DOUBLE)         │
+│        cs_quantity        │
+│        cs_quantity        │
+│CAST(cs_quantity AS DOUBLE)│
+│                           │
+│       ~911,446 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #4            │
+│             #3            │
+│             #1            │
+│             #2            │
+│__internal_compress_string_│
+│        uinteger(#5)       │
+│                           │
+│       ~911,446 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        │
+│  cs_item_sk = ss_item_sk  ├───────────────────────────────────────────┐
+│   cs_bill_customer_sk =   │                                           │
+│       ss_customer_sk      │                                           │
+│                           │                                           │
+│       ~911,446 rows       │                                           │
+└─────────────┬─────────────┘                                           │
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         HASH_JOIN         │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │      Join Type: INNER     │
+│                           │                             │                           │
+│        Conditions:        ├──────────────┐              │        Conditions:        ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│cs_sold_date_sk = d_date_sk│              │              │  ss_store_sk = s_store_sk │                                                                                                                                  │
+│                           │              │              │                           │                                                                                                                                  │
+│      ~1,585,269 rows      │              │              │        ~95,243 rows       │                                                                                                                                  │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘                                                                                                                                  │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐                                                                                                                    ┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││           FILTER          ││         HASH_JOIN         │                                                                                                                    │         SEQ_SCAN          │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │                                                                                                                    │    ────────────────────   │
+│    Table: catalog_sales   ││ (d_date_sk BETWEEN 2450815││      Join Type: INNER     │                                                                                                                    │        Table: store       │
+│   Type: Sequential Scan   ││        AND 2452653)       ││                           │                                                                                                                    │   Type: Sequential Scan   │
+│                           ││                           ││        Conditions:        │                                                                                                                    │                           │
+│        Projections:       ││                           ││   i_item_sk = ss_item_sk  │                                                                                                                    │        Projections:       │
+│    cs_bill_customer_sk    ││                           ││                           ├──────────────┐                                                                                                     │         s_store_sk        │
+│         cs_item_sk        ││                           ││                           │              │                                                                                                     │          s_state          │
+│      cs_sold_date_sk      ││                           ││                           │              │                                                                                                     │                           │
+│        cs_quantity        ││                           ││                           │              │                                                                                                     │          Filters:         │
+│                           ││                           ││                           │              │                                                                                                     │       s_store_sk<=40      │
+│                           ││                           ││                           │              │                                                                                                     │                           │
+│      ~5,759,989 rows      ││        ~14,609 rows       ││        ~47,621 rows       │              │                                                                                                     │          ~42 rows         │
+└───────────────────────────┘└─────────────┬─────────────┘└─────────────┬─────────────┘              │                                                                                                     └───────────────────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         PROJECTION        ││         SEQ_SCAN          ││         HASH_JOIN         │
+                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                             │             #0            ││        Table: item        ││      Join Type: INNER     │
+                             │                           ││   Type: Sequential Scan   ││                           │
+                             │                           ││                           ││        Conditions:        │
+                             │                           ││        Projections:       ││   sr_returned_date_sk =   ├────────────────────────────────────────────────────────────────────────┐
+                             │                           ││         i_item_sk         ││          d_date_sk        │                                                                        │
+                             │                           ││         i_item_id         ││                           │                                                                        │
+                             │                           ││        i_item_desc        ││                           │                                                                        │
+                             │                           ││                           ││                           │                                                                        │
+                             │        ~14,609 rows       ││        ~46,000 rows       ││        ~44,668 rows       │                                                                        │
+                             └─────────────┬─────────────┘└───────────────────────────┘└─────────────┬─────────────┘                                                                        │
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                             │           FILTER          │                             │         HASH_JOIN         │                                                          │           FILTER          │
+                             │    ────────────────────   │                             │    ────────────────────   │                                                          │    ────────────────────   │
+                             │ ((d_quarter_name = '1998Q1│                             │      Join Type: INNER     │                                                          │ (d_date_sk BETWEEN 2450820│
+                             │  ') OR (d_quarter_name =  │                             │                           │                                                          │        AND 2452822)       │
+                             │       '1998Q2') OR        │                             │        Conditions:        │                                                          │                           │
+                             │ (d_quarter_name = '1998Q3'│                             │  sr_item_sk = ss_item_sk  │                                                          │                           │
+                             │             ))            │                             │      sr_customer_sk =     ├──────────────┐                                           │                           │
+                             │                           │                             │       ss_customer_sk      │              │                                           │                           │
+                             │                           │                             │     sr_ticket_number =    │              │                                           │                           │
+                             │                           │                             │      ss_ticket_number     │              │                                           │                           │
+                             │                           │                             │                           │              │                                           │                           │
+                             │        ~14,609 rows       │                             │       ~162,299 rows       │              │                                           │        ~14,609 rows       │
+                             └─────────────┬─────────────┘                             └─────────────┬─────────────┘              │                                           └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          │                             │         SEQ_SCAN          ││         HASH_JOIN         │                             │         PROJECTION        │
+                             │    ────────────────────   │                             │    ────────────────────   ││    ────────────────────   │                             │    ────────────────────   │
+                             │      Table: date_dim      │                             │    Table: store_returns   ││      Join Type: INNER     │                             │             #0            │
+                             │   Type: Sequential Scan   │                             │   Type: Sequential Scan   ││                           │                             │                           │
+                             │                           │                             │                           ││        Conditions:        │                             │                           │
+                             │        Projections:       │                             │        Projections:       ││ss_sold_date_sk = d_date_sk│                             │                           │
+                             │         d_date_sk         │                             │       sr_customer_sk      ││                           │                             │                           │
+                             │       d_quarter_name      │                             │         sr_item_sk        ││                           │                             │                           │
+                             │                           │                             │      sr_ticket_number     ││                           ├──────────────┐              │                           │
+                             │          Filters:         │                             │    sr_returned_date_sk    ││                           │              │              │                           │
+                             │  optional: d_quarter_name │                             │     sr_return_quantity    ││                           │              │              │                           │
+                             │  IN ('1998Q1', '1998Q2',  │                             │                           ││                           │              │              │                           │
+                             │         '1998Q3')         │                             │          Filters:         ││                           │              │              │                           │
+                             │                           │                             │   sr_customer_sk<=232998  ││                           │              │              │                           │
+                             │                           │                             │                           ││                           │              │              │                           │
+                             │        ~73,049 rows       │                             │      ~1,149,565 rows      ││       ~129,988 rows       │              │              │        ~14,609 rows       │
+                             └───────────────────────────┘                             └───────────────────────────┘└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+                                                                                                                    ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                                                    │         SEQ_SCAN          ││           FILTER          ││           FILTER          │
+                                                                                                                    │    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                                                                                                                    │     Table: store_sales    ││ (d_date_sk BETWEEN 2450816││ ((d_quarter_name = '1998Q1│
+                                                                                                                    │   Type: Sequential Scan   ││        AND 2452642)       ││  ') OR (d_quarter_name =  │
+                                                                                                                    │                           ││                           ││       '1998Q2') OR        │
+                                                                                                                    │        Projections:       ││                           ││ (d_quarter_name = '1998Q3'│
+                                                                                                                    │      ss_sold_date_sk      ││                           ││             ))            │
+                                                                                                                    │         ss_item_sk        ││                           ││                           │
+                                                                                                                    │        ss_store_sk        ││                           ││                           │
+                                                                                                                    │       ss_customer_sk      ││                           ││                           │
+                                                                                                                    │      ss_ticket_number     ││                           ││                           │
+                                                                                                                    │        ss_quantity        ││                           ││                           │
+                                                                                                                    │                           ││                           ││                           │
+                                                                                                                    │          Filters:         ││                           ││                           │
+                                                                                                                    │   ss_customer_sk<=232998  ││                           ││                           │
+                                                                                                                    │                           ││                           ││                           │
+                                                                                                                    │      ~11,519,024 rows     ││         ~599 rows         ││        ~14,609 rows       │
+                                                                                                                    └───────────────────────────┘└─────────────┬─────────────┘└─────────────┬─────────────┘
+                                                                                                                                                 ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                                                                                 │         SEQ_SCAN          ││         SEQ_SCAN          │
+                                                                                                                                                 │    ────────────────────   ││    ────────────────────   │
+                                                                                                                                                 │      Table: date_dim      ││      Table: date_dim      │
+                                                                                                                                                 │   Type: Sequential Scan   ││   Type: Sequential Scan   │
+                                                                                                                                                 │                           ││                           │
+                                                                                                                                                 │        Projections:       ││        Projections:       │
+                                                                                                                                                 │         d_date_sk         ││         d_date_sk         │
+                                                                                                                                                 │                           ││       d_quarter_name      │
+                                                                                                                                                 │          Filters:         ││                           │
+                                                                                                                                                 │  d_quarter_name='1998Q1'  ││          Filters:         │
+                                                                                                                                                 │                           ││  optional: d_quarter_name │
+                                                                                                                                                 │                           ││  IN ('1998Q1', '1998Q2',  │
+                                                                                                                                                 │                           ││         '1998Q3')         │
+                                                                                                                                                 │                           ││                           │
+                                                                                                                                                 │         ~599 rows         ││        ~73,049 rows       │
+                                                                                                                                                 └───────────────────────────┘└───────────────────────────┘

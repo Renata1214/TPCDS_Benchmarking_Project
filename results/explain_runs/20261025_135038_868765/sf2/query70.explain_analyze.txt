@@ -1,0 +1,305 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select       sum(ss_net_profit) as total_sum    ,s_state    ,s_county    ,grouping(s_state)+grouping(s_county) as lochierarchy    ,rank() over (  	partition by grouping(s_state)+grouping(s_county),  	case when grouping(s_county) = 0 then s_state end   	order by sum(ss_net_profit) desc) as rank_within_parent  from     store_sales    ,date_dim       d1    ,store  where     d1.d_month_seq between 1212 and 1212+11  and d1.d_date_sk = ss_sold_date_sk  and s_store_sk  = ss_store_sk  and s_state in              ( select s_state                from  (select s_state as s_state,  			    rank() over ( partition by s_state order by sum(ss_net_profit) desc) as ranking                       from   store_sales, store, date_dim                       where  d_month_seq between 1212 and 1212+11  			    and d_date_sk = ss_sold_date_sk  			    and s_store_sk  = ss_store_sk                       group by s_state                      ) tmp1                 where ranking <= 5              )  group by rollup(s_state,s_county)  order by    lochierarchy desc   ,case when lochierarchy = 0 then s_state end   ,rank_within_parent  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0494s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│                           │
+│           3 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  (GROUPING(tpcds_sf2.main │
+│ .store.s_state) + GROUPING│
+│   (tpcds_sf2.main.store   │
+│      .s_county)) DESC     │
+│           #5 ASC          │
+│ rank() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf2.main │
+│ .store.s_state) + GROUPING│
+│   (tpcds_sf2.main.store   │
+│ .s_county)), CASE  WHEN ( │
+│  (GROUPING(tpcds_sf2.main │
+│   .store.s_county) = 0))  │
+│    THEN (tpcds_sf2.main   │
+│ .store.s_state) ELSE NULL │
+│      END ORDER BY sum     │
+│      (tpcds_sf2.main      │
+│ .store_sales.ss_net_profit│
+│        ) DESC) ASC        │
+│                           │
+│           3 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         total_sum         │
+│          s_state          │
+│          s_county         │
+│        lochierarchy       │
+│     rank_within_parent    │
+│   CASE  WHEN (((GROUPING  │
+│   (tpcds_sf2.main.store   │
+│    .s_state) + GROUPING   │
+│   (tpcds_sf2.main.store   │
+│  .s_county)) = 0)) THEN   │
+│  (s_state) ELSE NULL END  │
+│                           │
+│           3 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│            #10            │
+│                           │
+│           3 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│ RANK() OVER (PARTITION BY │
+│  (GROUPING(tpcds_sf2.main │
+│ .store.s_state) + GROUPING│
+│   (tpcds_sf2.main.store   │
+│ .s_county)), CASE  WHEN ( │
+│  (GROUPING(tpcds_sf2.main │
+│   .store.s_county) = 0))  │
+│  THEN (s_state) ELSE NULL │
+│      END ORDER BY sum     │
+│ (ss_net_profit) DESC NULLS│
+│            LAST)          │
+│                           │
+│           3 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│    Aggregates: sum(#2)    │
+│                           │
+│           3 rows          │
+│          (0.15s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│          s_state          │
+│          s_county         │
+│       ss_net_profit       │
+│                           │
+│       1,067,887 rows      │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ss_sold_date_sk = d_date_sk│                                                                                                                                  │
+│                           │                                                                                                                                  │
+│       1,067,887 rows      │                                                                                                                                  │
+│          (0.01s)          │                                                                                                                                  │
+└─────────────┬─────────────┘                                                                                                                                  │
+┌─────────────┴─────────────┐                                                                                                                    ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                                                    │         PROJECTION        │
+│    ────────────────────   │                                                                                                                    │    ────────────────────   │
+│      Join Type: INNER     │                                                                                                                    │             #1            │
+│                           │                                                                                                                    │                           │
+│        Conditions:        ├──────────────┐                                                                                                     │                           │
+│  ss_store_sk = s_store_sk │              │                                                                                                     │                           │
+│                           │              │                                                                                                     │                           │
+│       1,067,887 rows      │              │                                                                                                     │          365 rows         │
+│          (0.01s)          │              │                                                                                                     │          (0.00s)          │
+└─────────────┬─────────────┘              │                                                                                                     └─────────────┬─────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         HASH_JOIN         │                                                                                       │           FILTER          │
+│    ────────────────────   ││    ────────────────────   │                                                                                       │    ────────────────────   │
+│     Table: store_sales    ││      Join Type: SEMI      │                                                                                       │ (d_date_sk BETWEEN 2450816│
+│   Type: Sequential Scan   ││                           │                                                                                       │        AND 2452642)       │
+│                           ││        Conditions:        ├──────────────┐                                                                        │                           │
+│                           ││        s_state = #0       │              │                                                                        │                           │
+│                           ││                           │              │                                                                        │                           │
+│       1,067,887 rows      ││          22 rows          │              │                                                                        │          365 rows         │
+│          (0.08s)          ││          (0.00s)          │              │                                                                        │          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘              │                                                                        └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││         PROJECTION        │                                                          │         TABLE_SCAN        │
+                             │    ────────────────────   ││    ────────────────────   │                                                          │    ────────────────────   │
+                             │        Table: store       ││             #0            │                                                          │      Table: date_dim      │
+                             │   Type: Sequential Scan   ││                           │                                                          │   Type: Sequential Scan   │
+                             │                           ││                           │                                                          │                           │
+                             │                           ││                           │                                                          │          Filters:         │
+                             │                           ││                           │                                                          │   d_month_seq>=1212 AND   │
+                             │                           ││                           │                                                          │      d_month_seq<=1223    │
+                             │                           ││                           │                                                          │                           │
+                             │          22 rows          ││           1 row           │                                                          │          365 rows         │
+                             │          (0.00s)          ││          (0.00s)          │                                                          │          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘                                                          └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │           FILTER          │
+                                                          │    ────────────────────   │
+                                                          │       (ranking <= 5)      │
+                                                          │                           │
+                                                          │           1 row           │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         PROJECTION        │
+                                                          │    ────────────────────   │
+                                                          │             #0            │
+                                                          │             #1            │
+                                                          │             #2            │
+                                                          │                           │
+                                                          │           1 row           │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │           WINDOW          │
+                                                          │    ────────────────────   │
+                                                          │        Projections:       │
+                                                          │ RANK() OVER (PARTITION BY │
+                                                          │    s_state ORDER BY sum   │
+                                                          │ (ss_net_profit) DESC NULLS│
+                                                          │            LAST)          │
+                                                          │                           │
+                                                          │           1 row           │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         PROJECTION        │
+                                                          │    ────────────────────   │
+                                                          │__internal_decompress_strin│
+                                                          │           g(#0)           │
+                                                          │             #1            │
+                                                          │                           │
+                                                          │           1 row           │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │       HASH_GROUP_BY       │
+                                                          │    ────────────────────   │
+                                                          │         Groups: #0        │
+                                                          │    Aggregates: sum(#1)    │
+                                                          │                           │
+                                                          │           1 row           │
+                                                          │          (0.05s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         PROJECTION        │
+                                                          │    ────────────────────   │
+                                                          │          s_state          │
+                                                          │       ss_net_profit       │
+                                                          │                           │
+                                                          │       1,067,887 rows      │
+                                                          │          (0.00s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         PROJECTION        │
+                                                          │    ────────────────────   │
+                                                          │             #0            │
+                                                          │__internal_compress_string_│
+                                                          │        uinteger(#1)       │
+                                                          │                           │
+                                                          │       1,067,887 rows      │
+                                                          │          (0.01s)          │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │
+                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │
+                                                          │                           │
+                                                          │        Conditions:        ├───────────────────────────────────────────┐
+                                                          │  ss_store_sk = s_store_sk │                                           │
+                                                          │                           │                                           │
+                                                          │       1,067,887 rows      │                                           │
+                                                          │          (0.01s)          │                                           │
+                                                          └─────────────┬─────────────┘                                           │
+                                                          ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │                             │         TABLE_SCAN        │
+                                                          │    ────────────────────   │                             │    ────────────────────   │
+                                                          │      Join Type: INNER     │                             │        Table: store       │
+                                                          │                           │                             │   Type: Sequential Scan   │
+                                                          │        Conditions:        │                             │                           │
+                                                          │ss_sold_date_sk = d_date_sk├──────────────┐              │        Projections:       │
+                                                          │                           │              │              │         s_store_sk        │
+                                                          │                           │              │              │          s_state          │
+                                                          │                           │              │              │                           │
+                                                          │       1,067,887 rows      │              │              │          22 rows          │
+                                                          │          (0.01s)          │              │              │          (0.00s)          │
+                                                          └─────────────┬─────────────┘              │              └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        ││           FILTER          │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │     Table: store_sales    ││ (d_date_sk BETWEEN 2450816│
+                                                          │   Type: Sequential Scan   ││        AND 2452642)       │
+                                                          │                           ││                           │
+                                                          │        Projections:       ││                           │
+                                                          │      ss_sold_date_sk      ││                           │
+                                                          │        ss_store_sk        ││                           │
+                                                          │       ss_net_profit       ││                           │
+                                                          │                           ││                           │
+                                                          │       1,067,887 rows      ││          365 rows         │
+                                                          │          (0.07s)          ││          (0.00s)          │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘
+                                                                                       ┌─────────────┴─────────────┐
+                                                                                       │         TABLE_SCAN        │
+                                                                                       │    ────────────────────   │
+                                                                                       │      Table: date_dim      │
+                                                                                       │   Type: Sequential Scan   │
+                                                                                       │                           │
+                                                                                       │        Projections:       │
+                                                                                       │         d_date_sk         │
+                                                                                       │                           │
+                                                                                       │          Filters:         │
+                                                                                       │   d_month_seq>=1212 AND   │
+                                                                                       │      d_month_seq<=1223    │
+                                                                                       │                           │
+                                                                                       │          365 rows         │
+                                                                                       │          (0.00s)          │
+                                                                                       └───────────────────────────┘

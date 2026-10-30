@@ -1,0 +1,177 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│   substr(tpcds_sf8.main   │
+│         .warehouse        │
+│ .w_warehouse_name, 1, 20) │
+│             ASC           │
+│  tpcds_sf8.main.ship_mode │
+│        .sm_type ASC       │
+│  tpcds_sf8.main.web_site  │
+│       .web_name ASC       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│__internal_decompress_strin│
+│           g(#1)           │
+│__internal_decompress_strin│
+│           g(#2)           │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│                           │
+│          ~76 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│                           │
+│        Aggregates:        │
+│          sum(#3)          │
+│          sum(#4)          │
+│          sum(#5)          │
+│          sum(#6)          │
+│          sum(#7)          │
+│                           │
+│          ~76 rows         │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│ substr(w_warehouse_name, 1│
+│           , 20)           │
+│          sm_type          │
+│          web_name         │
+│  CASE  WHEN ((#3 <= 30))  │
+│     THEN (1) ELSE 0 END   │
+│ CASE  WHEN (((#3 > 30) AND│
+│    (#3 <= 60))) THEN (1)  │
+│         ELSE 0 END        │
+│ CASE  WHEN (((#3 > 60) AND│
+│    (#3 <= 90))) THEN (1)  │
+│         ELSE 0 END        │
+│ CASE  WHEN (((#3 > 90) AND│
+│   (#3 <= 120))) THEN (1)  │
+│         ELSE 0 END        │
+│  CASE  WHEN ((#3 > 120))  │
+│     THEN (1) ELSE 0 END   │
+│                           │
+│      ~1,307,128 rows      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│__internal_compress_string_│
+│        uhugeint(#1)       │
+│__internal_compress_string_│
+│        ubigint(#2)        │
+│             #3            │
+│                           │
+│      ~1,307,128 rows      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│      w_warehouse_name     │
+│          sm_type          │
+│          web_name         │
+│     (ws_ship_date_sk -    │
+│      ws_sold_date_sk)     │
+│                           │
+│      ~1,307,128 rows      │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│      ws_web_site_sk =     │                                                                                                     │
+│         web_site_sk       │                                                                                                     │
+│                           │                                                                                                     │
+│      ~1,307,128 rows      │                                                                                                     │
+└─────────────┬─────────────┘                                                                                                     │
+┌─────────────┴─────────────┐                                                                                       ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                       │         SEQ_SCAN          │
+│    ────────────────────   │                                                                                       │    ────────────────────   │
+│      Join Type: INNER     │                                                                                       │      Table: web_site      │
+│                           │                                                                                       │   Type: Sequential Scan   │
+│        Conditions:        │                                                                                       │                           │
+│     ws_ship_mode_sk =     ├────────────────────────────────────────────────────────────────────────┐              │        Projections:       │
+│       sm_ship_mode_sk     │                                                                        │              │        web_site_sk        │
+│                           │                                                                        │              │          web_name         │
+│                           │                                                                        │              │                           │
+│      ~1,341,526 rows      │                                                                        │              │          ~38 rows         │
+└─────────────┬─────────────┘                                                                        │              └───────────────────────────┘
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │      Table: ship_mode     │
+│                           │                                                          │   Type: Sequential Scan   │
+│        Conditions:        │                                                          │                           │
+│     ws_warehouse_sk =     ├───────────────────────────────────────────┐              │        Projections:       │
+│       w_warehouse_sk      │                                           │              │      sm_ship_mode_sk      │
+│                           │                                           │              │          sm_type          │
+│                           │                                           │              │                           │
+│      ~1,408,602 rows      │                                           │              │          ~20 rows         │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         SEQ_SCAN          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │      Table: warehouse     │
+│                           │                             │   Type: Sequential Scan   │
+│        Conditions:        │                             │                           │
+│ws_ship_date_sk = d_date_sk├──────────────┐              │        Projections:       │
+│                           │              │              │       w_warehouse_sk      │
+│                           │              │              │      w_warehouse_name     │
+│                           │              │              │                           │
+│      ~1,584,677 rows      │              │              │          ~8 rows          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││           FILTER          │
+│    ────────────────────   ││    ────────────────────   │
+│      Table: web_sales     ││ (d_date_sk BETWEEN 2450817│
+│   Type: Sequential Scan   ││        AND 2452762)       │
+│                           ││                           │
+│        Projections:       ││                           │
+│      ws_ship_date_sk      ││                           │
+│      ws_warehouse_sk      ││                           │
+│      ws_ship_mode_sk      ││                           │
+│       ws_web_site_sk      ││                           │
+│      ws_sold_date_sk      ││                           │
+│                           ││                           │
+│      ~5,757,840 rows      ││        ~14,609 rows       │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          │
+                             │    ────────────────────   │
+                             │      Table: date_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         d_date_sk         │
+                             │                           │
+                             │          Filters:         │
+                             │   d_month_seq>=1212 AND   │
+                             │      d_month_seq<=1223    │
+                             │                           │
+                             │        ~14,609 rows       │
+                             └───────────────────────────┘

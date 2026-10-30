@@ -1,0 +1,279 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│   substr(tpcds_sf2.main   │
+│ .reason.r_reason_desc, 1, │
+│           20) ASC         │
+│     avg(tpcds_sf2.main    │
+│.web_sales.ws_quantity) ASC│
+│     avg(tpcds_sf2.main    │
+│        .web_returns       │
+│   .wr_refunded_cash) ASC  │
+│     avg(tpcds_sf2.main    │
+│  .web_returns.wr_fee) ASC │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│  substr(r_reason_desc, 1, │
+│             20)           │
+│      avg(ws_quantity)     │
+│   avg(wr_refunded_cash)   │
+│        avg(wr_fee)        │
+│                           │
+│        ~3,249 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│         Groups: #0        │
+│                           │
+│        Aggregates:        │
+│          avg(#1)          │
+│          avg(#2)          │
+│          avg(#3)          │
+│                           │
+│        ~3,249 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       r_reason_desc       │
+│        ws_quantity        │
+│      wr_refunded_cash     │
+│           wr_fee          │
+│                           │
+│        ~3,465 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #2            │
+│             #0            │
+│             #1            │
+│             #3            │
+│__internal_compress_integra│
+│     l_utinyint(#4, 1)     │
+│                           │
+│        ~3,465 rows        │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│      ws_web_page_sk =     │                                                                                                                                                                                            │
+│       wp_web_page_sk      │                                                                                                                                                                                            │
+│                           │                                                                                                                                                                                            │
+│        ~3,465 rows        │                                                                                                                                                                                            │
+└─────────────┬─────────────┘                                                                                                                                                                                            │
+┌─────────────┴─────────────┐                                                                                                                                                                              ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                                                                                                              │         SEQ_SCAN          │
+│    ────────────────────   │                                                                                                                                                                              │    ────────────────────   │
+│      Join Type: INNER     │                                                                                                                                                                              │      Table: web_page      │
+│                           │                                                                                                                                                                              │   Type: Sequential Scan   │
+│        Conditions:        ├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐              │                           │
+│ wr_reason_sk = r_reason_sk│                                                                                                                                                               │              │        Projections:       │
+│                           │                                                                                                                                                               │              │       wp_web_page_sk      │
+│                           │                                                                                                                                                               │              │                           │
+│        ~3,278 rows        │                                                                                                                                                               │              │          ~74 rows         │
+└─────────────┬─────────────┘                                                                                                                                                               │              └───────────────────────────┘
+┌─────────────┴─────────────┐                                                                                                                                                 ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                                                                                                                 │         SEQ_SCAN          │
+│    ────────────────────   │                                                                                                                                                 │    ────────────────────   │
+│      Join Type: INNER     │                                                                                                                                                 │       Table: reason       │
+│                           │                                                                                                                                                 │   Type: Sequential Scan   │
+│        Conditions:        │                                                                                                                                                 │                           │
+│        cd_demo_sk =       │                                                                                                                                                 │        Projections:       │
+│    wr_returning_cdemo_sk  ├──────────────┐                                                                                                                                  │        r_reason_sk        │
+│   cd_education_status =   │              │                                                                                                                                  │       r_reason_desc       │
+│     cd_education_status   │              │                                                                                                                                  │                           │
+│    cd_marital_status =    │              │                                                                                                                                  │                           │
+│      cd_marital_status    │              │                                                                                                                                  │                           │
+│                           │              │                                                                                                                                  │                           │
+│        ~2,393 rows        │              │                                                                                                                                  │          ~75 rows         │
+└─────────────┬─────────────┘              │                                                                                                                                  └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│           Table:          ││             #0            │
+│   customer_demographics   ││             #1            │
+│                           ││             #2            │
+│   Type: Sequential Scan   ││             #3            │
+│                           ││             #4            │
+│        Projections:       ││             #5            │
+│         cd_demo_sk        ││             #6            │
+│     cd_marital_status     ││             #8            │
+│    cd_education_status    ││                           │
+│                           ││                           │
+│          Filters:         ││                           │
+│     cd_demo_sk>=4 AND     ││                           │
+│     cd_demo_sk<=1920789   ││                           │
+│                           ││                           │
+│      ~1,920,800 rows      ││        ~4,786 rows        │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │           FILTER          │
+                             │    ────────────────────   │
+                             │ ((((ws_sales_price >= 100 │
+                             │ .00) AND (ws_sales_price <│
+                             │      = 150.00)) AND       │
+                             │ (cd_marital_status = 'M') │
+                             │  AND (cd_education_status │
+                             │  = '4 yr Degree')) OR ((  │
+                             │ (ws_sales_price >= 50.00) │
+                             │   AND (ws_sales_price <=  │
+                             │        100.00)) AND       │
+                             │ (cd_marital_status = 'D') │
+                             │  AND (cd_education_status │
+                             │    = 'Primary')) OR ((    │
+                             │ (ws_sales_price >= 150.00)│
+                             │   AND (ws_sales_price <=  │
+                             │        200.00)) AND       │
+                             │ (cd_marital_status = 'U') │
+                             │  AND (cd_education_status │
+                             │   = 'Advanced Degree')))  │
+                             │                           │
+                             │        ~4,786 rows        │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │
+                             │    ────────────────────   │
+                             │      Join Type: INNER     │
+                             │                           │
+                             │        Conditions:        ├──────────────┐
+                             │        cd_demo_sk =       │              │
+                             │    wr_refunded_cdemo_sk   │              │
+                             │                           │              │
+                             │        ~4,786 rows        │              │
+                             └─────────────┬─────────────┘              │
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         PROJECTION        │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │           Table:          ││             #0            │
+                             │   customer_demographics   ││             #1            │
+                             │                           ││             #2            │
+                             │   Type: Sequential Scan   ││             #3            │
+                             │                           ││             #4            │
+                             │        Projections:       ││             #5            │
+                             │         cd_demo_sk        ││             #6            │
+                             │     cd_marital_status     ││             #8            │
+                             │    cd_education_status    ││                           │
+                             │                           ││                           │
+                             │          Filters:         ││                           │
+                             │     cd_demo_sk>=4 AND     ││                           │
+                             │     cd_demo_sk<=1920789   ││                           │
+                             │                           ││                           │
+                             │      ~1,920,800 rows      ││        ~4,786 rows        │
+                             └───────────────────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │           FILTER          │
+                                                          │    ────────────────────   │
+                                                          │  ((((ws_net_profit >= 100 │
+                                                          │ .00) AND (ws_net_profit <=│
+                                                          │  200.00)) AND ((ca_state =│
+                                                          │  'KY') OR (ca_state = 'GA'│
+                                                          │  ) OR (ca_state = 'NM'))) │
+                                                          │   OR (((ws_net_profit >=  │
+                                                          │        150.00) AND        │
+                                                          │ (ws_net_profit <= 300.00))│
+                                                          │  AND ((ca_state = 'MT') OR│
+                                                          │    (ca_state = 'OR') OR   │
+                                                          │ (ca_state = 'IN'))) OR (( │
+                                                          │  (ws_net_profit >= 50.00) │
+                                                          │  AND (ws_net_profit <= 250│
+                                                          │ .00)) AND ((ca_state = 'WI│
+                                                          │ ') OR (ca_state = 'MO') OR│
+                                                          │    (ca_state = 'WV'))))   │
+                                                          │                           │
+                                                          │        ~4,786 rows        │
+                                                          └─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │
+                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │
+                                                          │                           │
+                                                          │        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+                                                          │   wr_refunded_addr_sk =   │                                                                        │
+                                                          │        ca_address_sk      │                                                                        │
+                                                          │                           │                                                                        │
+                                                          │        ~4,786 rows        │                                                                        │
+                                                          └─────────────┬─────────────┘                                                                        │
+                                                          ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                                                          │         HASH_JOIN         │                                                          │         SEQ_SCAN          │
+                                                          │    ────────────────────   │                                                          │    ────────────────────   │
+                                                          │      Join Type: INNER     │                                                          │           Table:          │
+                                                          │                           │                                                          │      customer_address     │
+                                                          │        Conditions:        │                                                          │                           │
+                                                          │  wr_item_sk = ws_item_sk  │                                                          │   Type: Sequential Scan   │
+                                                          │     wr_order_number =     │                                                          │                           │
+                                                          │       ws_order_number     ├──────────────┐                                           │        Projections:       │
+                                                          │                           │              │                                           │       ca_address_sk       │
+                                                          │                           │              │                                           │          ca_state         │
+                                                          │                           │              │                                           │                           │
+                                                          │                           │              │                                           │          Filters:         │
+                                                          │                           │              │                                           │ ca_country='United States'│
+                                                          │                           │              │                                           │                           │
+                                                          │        ~18,325 rows       │              │                                           │        ~14,400 rows       │
+                                                          └─────────────┬─────────────┘              │                                           └───────────────────────────┘
+                                                          ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                          │         SEQ_SCAN          ││         HASH_JOIN         │
+                                                          │    ────────────────────   ││    ────────────────────   │
+                                                          │     Table: web_returns    ││      Join Type: INNER     │
+                                                          │   Type: Sequential Scan   ││                           │
+                                                          │                           ││        Conditions:        │
+                                                          │        Projections:       ││ws_sold_date_sk = d_date_sk│
+                                                          │         wr_item_sk        ││                           │
+                                                          │      wr_order_number      ││                           │
+                                                          │    wr_refunded_cdemo_sk   ││                           ├──────────────┐
+                                                          │   wr_returning_cdemo_sk   ││                           │              │
+                                                          │    wr_refunded_addr_sk    ││                           │              │
+                                                          │        wr_reason_sk       ││                           │              │
+                                                          │      wr_refunded_cash     ││                           │              │
+                                                          │           wr_fee          ││                           │              │
+                                                          │                           ││                           │              │
+                                                          │       ~143,629 rows       ││        ~14,695 rows       │              │
+                                                          └───────────────────────────┘└─────────────┬─────────────┘              │
+                                                                                       ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                                                                                       │         SEQ_SCAN          ││           FILTER          │
+                                                                                       │    ────────────────────   ││    ────────────────────   │
+                                                                                       │      Table: web_sales     ││ (d_date_sk BETWEEN 2450816│
+                                                                                       │   Type: Sequential Scan   ││        AND 2452642)       │
+                                                                                       │                           ││                           │
+                                                                                       │        Projections:       ││                           │
+                                                                                       │       ws_web_page_sk      ││                           │
+                                                                                       │         ws_item_sk        ││                           │
+                                                                                       │      ws_order_number      ││                           │
+                                                                                       │      ws_sold_date_sk      ││                           │
+                                                                                       │       ws_sales_price      ││                           │
+                                                                                       │       ws_net_profit       ││                           │
+                                                                                       │        ws_quantity        ││                           │
+                                                                                       │                           ││                           │
+                                                                                       │          Filters:         ││                           │
+                                                                                       │  ws_order_number<=119999  ││                           │
+                                                                                       │                           ││                           │
+                                                                                       │      ~1,439,247 rows      ││         ~542 rows         │
+                                                                                       └───────────────────────────┘└─────────────┬─────────────┘
+                                                                                                                    ┌─────────────┴─────────────┐
+                                                                                                                    │         SEQ_SCAN          │
+                                                                                                                    │    ────────────────────   │
+                                                                                                                    │      Table: date_dim      │
+                                                                                                                    │   Type: Sequential Scan   │
+                                                                                                                    │                           │
+                                                                                                                    │        Projections:       │
+                                                                                                                    │         d_date_sk         │
+                                                                                                                    │                           │
+                                                                                                                    │    Filters: d_year=1998   │
+                                                                                                                    │                           │
+                                                                                                                    │         ~542 rows         │
+                                                                                                                    └───────────────────────────┘

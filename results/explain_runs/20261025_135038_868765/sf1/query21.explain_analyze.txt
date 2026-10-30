@@ -1,0 +1,132 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  *  from(select w_warehouse_name             ,i_item_id             ,sum(case when (cast(d_date as date) < cast ('1998-04-08' as date)) 	                then inv_quantity_on_hand                        else 0 end) as inv_before             ,sum(case when (cast(d_date as date) >= cast ('1998-04-08' as date))                       then inv_quantity_on_hand                        else 0 end) as inv_after    from inventory        ,warehouse        ,item        ,date_dim    where i_current_price between 0.99 and 1.49      and i_item_sk          = inv_item_sk      and inv_warehouse_sk   = w_warehouse_sk      and inv_date_sk    = d_date_sk      and d_date between (cast ('1998-04-08' as date) - INTERVAL '30 days')                     and (cast ('1998-04-08' as date) + INTERVAL '30 days')    group by w_warehouse_name, i_item_id) x  where (case when inv_before > 0               then inv_after / inv_before               else null              end) between 2.0/3.0 and 3.0/2.0  order by w_warehouse_name          ,i_item_id  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0130s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│   x.w_warehouse_name ASC  │
+│      x.i_item_id ASC      │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│ (CASE  WHEN ((inv_before >│
+│  0)) THEN ((CAST(inv_after│
+│      AS DOUBLE) / CAST    │
+│  (inv_before AS DOUBLE))) │
+│   ELSE NULL END BETWEEN 0 │
+│ .6666666666666666 AND 1.5)│
+│                           │
+│         1,643 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│                           │
+│        Aggregates:        │
+│          sum(#2)          │
+│          sum(#3)          │
+│                           │
+│         2,750 rows        │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│      w_warehouse_name     │
+│         i_item_id         │
+│   CASE  WHEN ((d_date <   │
+│ '1998-04-08'::DATE)) THEN │
+│   (inv_quantity_on_hand)  │
+│         ELSE 0 END        │
+│  CASE  WHEN ((d_date >=   │
+│ '1998-04-08'::DATE)) THEN │
+│   (inv_quantity_on_hand)  │
+│         ELSE 0 END        │
+│                           │
+│        24,750 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        │
+│     inv_warehouse_sk =    ├────────────────────────────────────────────────────────────────────────┐
+│       w_warehouse_sk      │                                                                        │
+│                           │                                                                        │
+│        24,750 rows        │                                                                        │
+│          (0.00s)          │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         TABLE_SCAN        │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │      Table: warehouse     │
+│                           │                                                          │   Type: Sequential Scan   │
+│        Conditions:        │                                                          │                           │
+│  inv_date_sk = d_date_sk  ├───────────────────────────────────────────┐              │        Projections:       │
+│                           │                                           │              │       w_warehouse_sk      │
+│                           │                                           │              │      w_warehouse_name     │
+│                           │                                           │              │                           │
+│        24,750 rows        │                                           │              │           5 rows          │
+│          (0.00s)          │                                           │              │          (0.00s)          │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │           FILTER          │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │ (d_date_sk BETWEEN 2450815│
+│                           │                             │        AND 2452635)       │
+│        Conditions:        ├──────────────┐              │                           │
+│  inv_item_sk = i_item_sk  │              │              │                           │
+│                           │              │              │                           │
+│        24,750 rows        │              │              │          61 rows          │
+│          (0.00s)          │              │              │          (0.00s)          │
+└─────────────┬─────────────┘              │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         TABLE_SCAN        ││         TABLE_SCAN        │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│      Table: inventory     ││        Table: item        ││      Table: date_dim      │
+│   Type: Sequential Scan   ││   Type: Sequential Scan   ││   Type: Sequential Scan   │
+│                           ││                           ││                           │
+│        Projections:       ││        Projections:       ││        Projections:       │
+│        inv_item_sk        ││         i_item_sk         ││         d_date_sk         │
+│      inv_warehouse_sk     ││         i_item_id         ││           d_date          │
+│        inv_date_sk        ││                           ││                           │
+│    inv_quantity_on_hand   ││          Filters:         ││          Filters:         │
+│                           ││ i_current_price>=0.99 AND ││ (CAST(d_date AS TIMESTAMP)│
+│                           ││    i_current_price<=1.49  ││  BETWEEN '1998-03-09 00:00│
+│                           ││                           ││ :00'::TIMESTAMP AND '1998 │
+│                           ││                           ││     -05-08 00:00:00':     │
+│                           ││                           ││        :TIMESTAMP)        │
+│                           ││                           ││                           │
+│        404,955 rows       ││         1,104 rows        ││          61 rows          │
+│          (0.01s)          ││          (0.00s)          ││          (0.00s)          │
+└───────────────────────────┘└───────────────────────────┘└───────────────────────────┘

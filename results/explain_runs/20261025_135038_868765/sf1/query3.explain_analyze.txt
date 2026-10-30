@@ -1,0 +1,135 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  dt.d_year         ,item.i_brand_id brand_id         ,item.i_brand brand        ,sum(ss_ext_sales_price) sum_agg  from  date_dim dt        ,store_sales       ,item  where dt.d_date_sk = store_sales.ss_sold_date_sk    and store_sales.ss_item_sk = item.i_item_sk    and item.i_manufact_id = 436    and dt.d_moy=12  group by dt.d_year       ,item.i_brand       ,item.i_brand_id  order by dt.d_year          ,sum_agg desc          ,brand_id  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0106s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│       dt.d_year ASC       │
+│     sum(tpcds_sf1.main    │
+│        .store_sales       │
+│ .ss_ext_sales_price) DESC │
+│    tpcds_sf1.main.item    │
+│      .i_brand_id ASC      │
+│                           │
+│          38 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│           d_year          │
+│          brand_id         │
+│           brand           │
+│          sum_agg          │
+│                           │
+│          38 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_integ│
+│   ral_integer(#0, 1900)   │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│          38 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│                           │
+│    Aggregates: sum(#3)    │
+│                           │
+│          38 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│           d_year          │
+│          i_brand          │
+│         i_brand_id        │
+│     ss_ext_sales_price    │
+│                           │
+│          417 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_compress_integra│
+│    l_utinyint(#0, 1900)   │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│          417 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│d_date_sk = ss_sold_date_sk│              │
+│                           │              │
+│          417 rows         │              │
+│          (0.00s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│           FILTER          ││         HASH_JOIN         │
+│    ────────────────────   ││    ────────────────────   │
+│ (d_date_sk BETWEEN 2450816││      Join Type: INNER     │
+│        AND 2452642)       ││                           │
+│                           ││        Conditions:        ├──────────────┐
+│                           ││   ss_item_sk = i_item_sk  │              │
+│                           ││                           │              │
+│          155 rows         ││         2,590 rows        │              │
+│          (0.00s)          ││          (0.01s)          │              │
+└─────────────┬─────────────┘└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         TABLE_SCAN        ││         TABLE_SCAN        │
+│    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+│      Table: date_dim      ││     Table: store_sales    ││        Table: item        │
+│   Type: Sequential Scan   ││   Type: Sequential Scan   ││   Type: Sequential Scan   │
+│                           ││                           ││                           │
+│        Projections:       ││        Projections:       ││        Projections:       │
+│         d_date_sk         ││      ss_sold_date_sk      ││         i_item_sk         │
+│           d_year          ││         ss_item_sk        ││          i_brand          │
+│                           ││     ss_ext_sales_price    ││         i_brand_id        │
+│          Filters:         ││                           ││                           │
+│          d_moy=12         ││                           ││          Filters:         │
+│ optional: Dynamic Filter  ││                           ││     i_manufact_id=436     │
+│          (d_year)         ││                           ││                           │
+│                           ││                           ││                           │
+│          155 rows         ││       2,544,462 rows      ││          19 rows          │
+│          (0.00s)          ││          (0.02s)          ││          (0.00s)          │
+└───────────────────────────┘└───────────────────────────┘└───────────────────────────┘

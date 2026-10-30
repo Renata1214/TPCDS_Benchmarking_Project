@@ -1,0 +1,255 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌─────────────┐
+│    TOP_N    │
+│    ──────   │
+│     Top:    │
+│     100     │
+│             │
+│  Order By:  │
+│x.channel ASC│
+│   x.id ASC  │
+└──────┬──────┘
+┌──────┴──────┐
+│HASH_GROUP_BY│
+│    ──────   │
+│   Groups:   │
+│      #0     │
+│      #1     │
+│             │
+│ Aggregates: │
+│   sum(#2)   │
+│   sum(#3)   │
+│   sum(#4)   │
+│             │
+│ ~13,782 rows│
+└──────┬──────┘
+┌──────┴──────┐
+│  PROJECTION │
+│    ──────   │
+│   channel   │
+│      id     │
+│    sales    │
+│   returns   │
+│    profit   │
+│             │
+│ ~45,730 rows│
+└──────┬──────┘
+┌──────┴──────┐
+│    UNION    ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+└──────┬──────┘                                                                                                                                                                            │
+┌──────┴──────┐                                                                                                                                                                     ┌──────┴──────┐
+│    UNION    │                                                                                                                                                                     │  PROJECTION │
+│             │                                                                                                                                                                     │    ──────   │
+│             │                                                                                                                                                                     │   channel   │
+│             │                                                                                                                                                                     │      id     │
+│             ├──────────────────────────────────────────────────────────────────────────────────┐                                                                                  │    sales    │
+│             │                                                                                  │                                                                                  │   returns   │
+│             │                                                                                  │                                                                                  │    profit   │
+│             │                                                                                  │                                                                                  │             │
+│             │                                                                                  │                                                                                  │ ~6,499 rows │
+└──────┬──────┘                                                                                  │                                                                                  └──────┬──────┘
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                                                           ┌──────┴──────┐
+│  PROJECTION │                                                                           │  PROJECTION │                                                                           │HASH_GROUP_BY│
+│    ──────   │                                                                           │    ──────   │                                                                           │    ──────   │
+│   channel   │                                                                           │   channel   │                                                                           │   Groups:   │
+│      id     │                                                                           │      id     │                                                                           │      #0     │
+│    sales    │                                                                           │    sales    │                                                                           │             │
+│   returns   │                                                                           │   returns   │                                                                           │ Aggregates: │
+│    profit   │                                                                           │    profit   │                                                                           │   sum(#1)   │
+│             │                                                                           │             │                                                                           │   sum(#2)   │
+│             │                                                                           │             │                                                                           │   sum(#3)   │
+│             │                                                                           │             │                                                                           │             │
+│ ~24,756 rows│                                                                           │ ~14,475 rows│                                                                           │ ~6,499 rows │
+└──────┬──────┘                                                                           └──────┬──────┘                                                                           └──────┬──────┘
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                                                           ┌──────┴──────┐
+│HASH_GROUP_BY│                                                                           │HASH_GROUP_BY│                                                                           │  PROJECTION │
+│    ──────   │                                                                           │    ──────   │                                                                           │    ──────   │
+│   Groups:   │                                                                           │   Groups:   │                                                                           │ web_site_id │
+│      #0     │                                                                           │      #0     │                                                                           │ws_ext_sales_│
+│             │                                                                           │             │                                                                           │    price    │
+│ Aggregates: │                                                                           │ Aggregates: │                                                                           │   COALESCE  │
+│   sum(#1)   │                                                                           │   sum(#1)   │                                                                           │(CAST(wr_retu│
+│   sum(#2)   │                                                                           │   sum(#2)   │                                                                           │  rn_amt AS  │
+│   sum(#3)   │                                                                           │   sum(#3)   │                                                                           │  DECIMAL(12 │
+│             │                                                                           │             │                                                                           │ ,2)), 0.00) │
+│             │                                                                           │             │                                                                           │(CAST(ws_net_│
+│             │                                                                           │             │                                                                           │  profit AS  │
+│             │                                                                           │             │                                                                           │  DECIMAL(13 │
+│             │                                                                           │             │                                                                           │,2)) - COALES│
+│             │                                                                           │             │                                                                           │CE(CAST(wr_ne│
+│             │                                                                           │             │                                                                           │  t_loss AS  │
+│             │                                                                           │             │                                                                           │  DECIMAL(12 │
+│             │                                                                           │             │                                                                           │ ,2)), 0.00))│
+│             │                                                                           │             │                                                                           │             │
+│ ~24,756 rows│                                                                           │ ~14,475 rows│                                                                           │ ~7,712 rows │
+└──────┬──────┘                                                                           └──────┬──────┘                                                                           └──────┬──────┘
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                                                           ┌──────┴──────┐
+│  PROJECTION │                                                                           │  PROJECTION │                                                                           │  HASH_JOIN  │
+│    ──────   │                                                                           │    ──────   │                                                                           │    ──────   │
+│  s_store_id │                                                                           │cp_catalog_pa│                                                                           │  Join Type: │
+│ss_ext_sales_│                                                                           │    ge_id    │                                                                           │    INNER    │
+│    price    │                                                                           │cs_ext_sales_│                                                                           │             │
+│   COALESCE  │                                                                           │    price    │                                                                           │ Conditions: │
+│(CAST(sr_retu│                                                                           │   COALESCE  │                                                                           │ws_web_site_s│
+│  rn_amt AS  │                                                                           │(CAST(cr_retu│                                                                           │k = web_site_│
+│  DECIMAL(12 │                                                                           │ rn_amount AS│                                                                           │      sk     │
+│ ,2)), 0.00) │                                                                           │  DECIMAL(12 │                                                                           │             │
+│(CAST(ss_net_│                                                                           │ ,2)), 0.00) │                                                                           │             ├─────────────────────────────────────────────
+│  profit AS  │                                                                           │(CAST(cs_net_│                                                                           │             │                                             
+│  DECIMAL(13 │                                                                           │  profit AS  │                                                                           │             │                                             
+│,2)) - COALES│                                                                           │  DECIMAL(13 │                                                                           │             │                                             
+│CE(CAST(sr_ne│                                                                           │,2)) - COALES│                                                                           │             │                                             
+│  t_loss AS  │                                                                           │CE(CAST(cr_ne│                                                                           │             │                                             
+│  DECIMAL(12 │                                                                           │  t_loss AS  │                                                                           │             │                                             
+│ ,2)), 0.00))│                                                                           │  DECIMAL(12 │                                                                           │             │                                             
+│             │                                                                           │ ,2)), 0.00))│                                                                           │             │                                             
+│             │                                                                           │             │                                                                           │             │                                             
+│ ~29,853 rows│                                                                           │ ~17,192 rows│                                                                           │ ~7,712 rows │                                             
+└──────┬──────┘                                                                           └──────┬──────┘                                                                           └──────┬──────┘                                             
+┌──────┴──────┐                                                                           ┌──────┴──────┐                                                                           ┌──────┴──────┐                                             
+│  HASH_JOIN  │                                                                           │  HASH_JOIN  │                                                                           │  HASH_JOIN  │                                             
+│    ──────   │                                                                           │    ──────   │                                                                           │    ──────   │                                             
+│  Join Type: │                                                                           │  Join Type: │                                                                           │  Join Type: │                                             
+│    INNER    │                                                                           │    INNER    │                                                                           │    INNER    │                                             
+│             │                                                                           │             │                                                                           │             │                                             
+│ Conditions: │                                                                           │ Conditions: │                                                                           │ Conditions: │                                             
+│ ss_store_sk │                                                                           │cs_catalog_pa│                                                                           │ws_sold_date_│                                             
+│ = s_store_sk├───────────────────────────────────────────────────────────────────┐       │ge_sk = cp_ca├───────────────────────────────────────────────────────────────────┐       │sk = d_date_s├─────────────────────────────────────────────
+│             │                                                                   │       │talog_page_sk│                                                                   │       │      k      │                                             
+│             │                                                                   │       │             │                                                                   │       │             │                                             
+│             │                                                                   │       │             │                                                                   │       │             │                                             
+│             │                                                                   │       │             │                                                                   │       │             │                                             
+│             │                                                                   │       │             │                                                                   │       │             │                                             
+│ ~29,853 rows│                                                                   │       │ ~17,192 rows│                                                                   │       │ ~7,455 rows │                                             
+└──────┬──────┘                                                                   │       └──────┬──────┘                                                                   │       └──────┬──────┘                                             
+┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐                                             
+│  HASH_JOIN  │                                                            │  SEQ_SCAN   ││  HASH_JOIN  │                                                            │  SEQ_SCAN   ││  HASH_JOIN  │                                             
+│    ──────   │                                                            │    ──────   ││    ──────   │                                                            │    ──────   ││    ──────   │                                             
+│  Join Type: │                                                            │    Table:   ││  Join Type: │                                                            │    Table:   ││  Join Type: │                                             
+│    INNER    │                                                            │    store    ││    INNER    │                                                            │ catalog_page││    INNER    │                                             
+│             │                                                            │             ││             │                                                            │             ││             │                                             
+│ Conditions: │                                                            │    Type:    ││ Conditions: │                                                            │    Type:    ││ Conditions: │                                             
+│ss_sold_date_│                                                            │  Sequential ││cs_sold_date_│                                                            │  Sequential ││ ws_item_sk =│                                             
+│sk = d_date_s│                                                            │     Scan    ││sk = d_date_s│                                                            │     Scan    ││   i_item_sk │                                             
+│      k      │                                                            │             ││      k      │                                                            │             ││             │                                             
+│             │                                                            │ Projections:││             │                                                            │ Projections:││             │                                             
+│             ├────────────────────────────────────────────────────┐       │  s_store_sk ││             ├────────────────────────────────────────────────────┐       │cp_catalog_pa││             ├─────────────────────────────────────┐       
+│             │                                                    │       │  s_store_id ││             │                                                    │       │    ge_sk    ││             │                                     │       
+│             │                                                    │       │             ││             │                                                    │       │cp_catalog_pa││             │                                     │       
+│             │                                                    │       │   Filters:  ││             │                                                    │       │    ge_id    ││             │                                     │       
+│             │                                                    │       │ s_store_sk< ││             │                                                    │       │             ││             │                                     │       
+│             │                                                    │       │     =10     ││             │                                                    │       │   Filters:  ││             │                                     │       
+│             │                                                    │       │             ││             │                                                    │       │cp_catalog_pa││             │                                     │       
+│             │                                                    │       │             ││             │                                                    │       │ ge_sk<=9828 ││             │                                     │       
+│             │                                                    │       │             ││             │                                                    │       │             ││             │                                     │       
+│ ~29,853 rows│                                                    │       │   ~12 rows  ││ ~14,940 rows│                                                    │       │ ~11,718 rows││ ~27,090 rows│                                     │       
+└──────┬──────┘                                                    │       └─────────────┘└──────┬──────┘                                                    │       └─────────────┘└──────┬──────┘                                     │       
+┌──────┴──────┐                                             ┌──────┴──────┐               ┌──────┴──────┐                                             ┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐
+│  HASH_JOIN  │                                             │    FILTER   │               │  HASH_JOIN  │                                             │    FILTER   │               │  HASH_JOIN  │                              │  SEQ_SCAN   │
+│    ──────   │                                             │    ──────   │               │    ──────   │                                             │    ──────   │               │    ──────   │                              │    ──────   │
+│  Join Type: │                                             │  (d_date_sk │               │  Join Type: │                                             │  (d_date_sk │               │  Join Type: │                              │    Table:   │
+│    INNER    │                                             │    BETWEEN  │               │    INNER    │                                             │    BETWEEN  │               │    INNER    │                              │     item    │
+│             │                                             │  2450816 AND│               │             │                                             │  2450815 AND│               │             │                              │             │
+│ Conditions: │                                             │   2452642)  │               │ Conditions: │                                             │   2452648)  │               │ Conditions: │                              │    Type:    │
+│ ss_item_sk =│                                             │             │               │ cs_item_sk =│                                             │             │               │ ws_promo_sk │                              │  Sequential │
+│   i_item_sk │                                             │             │               │   i_item_sk │                                             │             │               │ = p_promo_sk│                              │     Scan    │
+│             │                                             │             │               │             │                                             │             │               │             │                              │             │
+│             │                                             │             │               │             │                                             │             │               │             │                              │ Projections:│
+│             │                                             │             │               │             │                                             │             │               │             │                              │  i_item_sk  │
+│             │                                             │             │               │             │                                             │             │               │             │                              │             │
+│             ├─────────────────────────────────────┐       │             │               │             ├─────────────────────────────────────┐       │             │               │             ├──────────────────────┐       │   Filters:  │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │i_current_pri│
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │   ce>50.00  │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│             │                                     │       │             │               │             │                                     │       │             │               │             │                      │       │             │
+│~108,469 rows│                                     │       │ ~14,609 rows│               │ ~54,285 rows│                                     │       │ ~14,609 rows│               │~127,324 rows│                      │       │ ~3,600 rows │
+└──────┬──────┘                                     │       └──────┬──────┘               └──────┬──────┘                                     │       └──────┬──────┘               └──────┬──────┘                      │       └─────────────┘
+┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐               ┌──────┴──────┐               ┌──────┴──────┐
+│  HASH_JOIN  │                              │  SEQ_SCAN   ││  SEQ_SCAN   │               │  HASH_JOIN  │                              │  SEQ_SCAN   ││  SEQ_SCAN   │               │  HASH_JOIN  │               │  SEQ_SCAN   │
+│    ──────   │                              │    ──────   ││    ──────   │               │    ──────   │                              │    ──────   ││    ──────   │               │    ──────   │               │    ──────   │
+│  Join Type: │                              │    Table:   ││    Table:   │               │  Join Type: │                              │    Table:   ││    Table:   │               │  Join Type: │               │    Table:   │
+│    INNER    │                              │     item    ││   date_dim  │               │    INNER    │                              │     item    ││   date_dim  │               │     LEFT    │               │  promotion  │
+│             │                              │             ││             │               │             │                              │             ││             │               │             │               │             │
+│ Conditions: │                              │    Type:    ││    Type:    │               │ Conditions: │                              │    Type:    ││    Type:    │               │ Conditions: │               │    Type:    │
+│ ss_promo_sk │                              │  Sequential ││  Sequential │               │ cs_promo_sk │                              │  Sequential ││  Sequential │               │ ws_item_sk =│               │  Sequential │
+│ = p_promo_sk│                              │     Scan    ││     Scan    │               │ = p_promo_sk│                              │     Scan    ││     Scan    │               │  wr_item_sk │               │     Scan    │
+│             │                              │             ││             │               │             │                              │             ││             │               │ws_order_numb│               │             │
+│             │                              │ Projections:││ Projections:│               │             │                              │ Projections:││ Projections:│               │er = wr_order│               │ Projections:│
+│             │                              │  i_item_sk  ││  d_date_sk  │               │             │                              │  i_item_sk  ││  d_date_sk  │               │   _number   │               │  p_promo_sk │
+│             │                              │             ││             │               │             │                              │             ││             │               │             │               │             │
+│             ├──────────────────────┐       │   Filters:  ││   Filters:  │               │             ├──────────────────────┐       │   Filters:  ││   Filters:  │               │             ├───────┐       │   Filters:  │
+│             │                      │       │i_current_pri││ (CAST(d_date│               │             │                      │       │i_current_pri││ (CAST(d_date│               │             │       │       │ p_channel_tv│
+│             │                      │       │   ce>50.00  ││ AS TIMESTAMP│               │             │                      │       │   ce>50.00  ││ AS TIMESTAMP│               │             │       │       │     ='N'    │
+│             │                      │       │             ││  ) BETWEEN  │               │             │                      │       │             ││  ) BETWEEN  │               │             │       │       │             │
+│             │                      │       │             ││ '1998-08-04 │               │             │                      │       │             ││ '1998-08-04 │               │             │       │       │             │
+│             │                      │       │             ││  00:00:00': │               │             │                      │       │             ││  00:00:00': │               │             │       │       │             │
+│             │                      │       │             ││  :TIMESTAMP │               │             │                      │       │             ││  :TIMESTAMP │               │             │       │       │             │
+│             │                      │       │             ││   AND '1998 │               │             │                      │       │             ││   AND '1998 │               │             │       │       │             │
+│             │                      │       │             ││ -09-03 00:00│               │             │                      │       │             ││ -09-03 00:00│               │             │       │       │             │
+│             │                      │       │             ││:00'::TIMESTA│               │             │                      │       │             ││:00'::TIMESTA│               │             │       │       │             │
+│             │                      │       │             ││     MP)     │               │             │                      │       │             ││     MP)     │               │             │       │       │             │
+│             │                      │       │             ││             │               │             │                      │       │             ││             │               │             │       │       │             │
+│~509,806 rows│                      │       │ ~3,600 rows ││ ~14,609 rows│               │~255,141 rows│                      │       │ ~3,600 rows ││ ~14,609 rows│               │~719,384 rows│       │       │   ~60 rows  │
+└──────┬──────┘                      │       └─────────────┘└─────────────┘               └──────┬──────┘                      │       └─────────────┘└─────────────┘               └──────┬──────┘       │       └─────────────┘
+┌──────┴──────┐               ┌──────┴──────┐                                             ┌──────┴──────┐               ┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐
+│  HASH_JOIN  │               │  SEQ_SCAN   │                                             │  HASH_JOIN  │               │  SEQ_SCAN   │                                             │  SEQ_SCAN   ││  SEQ_SCAN   │
+│    ──────   │               │    ──────   │                                             │    ──────   │               │    ──────   │                                             │    ──────   ││    ──────   │
+│  Join Type: │               │    Table:   │                                             │  Join Type: │               │    Table:   │                                             │    Table:   ││    Table:   │
+│     LEFT    │               │  promotion  │                                             │     LEFT    │               │  promotion  │                                             │  web_sales  ││ web_returns │
+│             │               │             │                                             │             │               │             │                                             │             ││             │
+│ Conditions: │               │    Type:    │                                             │ Conditions: │               │    Type:    │                                             │    Type:    ││    Type:    │
+│ ss_item_sk =│               │  Sequential │                                             │ cs_item_sk =│               │  Sequential │                                             │  Sequential ││  Sequential │
+│  sr_item_sk │               │     Scan    │                                             │  cr_item_sk │               │     Scan    │                                             │     Scan    ││     Scan    │
+│ss_ticket_num│               │             │                                             │cs_order_numb│               │             │                                             │             ││             │
+│ber = sr_tick│               │ Projections:│                                             │er = cr_order│               │ Projections:│                                             │ Projections:││ Projections:│
+│  et_number  │               │  p_promo_sk │                                             │   _number   │               │  p_promo_sk │                                             │  ws_item_sk ││  wr_item_sk │
+│             ├───────┐       │             │                                             │             ├───────┐       │             │                                             │ws_order_numb││wr_order_numb│
+│             │       │       │   Filters:  │                                             │             │       │       │   Filters:  │                                             │      er     ││      er     │
+│             │       │       │ p_channel_tv│                                             │             │       │       │ p_channel_tv│                                             │ws_sold_date_││wr_return_amt│
+│             │       │       │     ='N'    │                                             │             │       │       │     ='N'    │                                             │      sk     ││ wr_net_loss │
+│             │       │       │             │                                             │             │       │       │             │                                             │ws_web_site_s││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │      k      ││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │ ws_promo_sk ││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │ws_ext_sales_││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │    price    ││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │ws_net_profit││             │
+│             │       │       │             │                                             │             │       │       │             │                                             │             ││             │
+│~2,880,4...  │       │       │   ~60 rows  │                                             │~1,441,5...  │       │       │   ~60 rows  │                                             │~719,384 rows││ ~71,763 rows│
+└──────┬──────┘       │       └─────────────┘                                             └──────┬──────┘       │       └─────────────┘                                             └─────────────┘└─────────────┘
+┌──────┴──────┐┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐
+│  SEQ_SCAN   ││  SEQ_SCAN   │                                                            │  SEQ_SCAN   ││  SEQ_SCAN   │
+│    ──────   ││    ──────   │                                                            │    ──────   ││    ──────   │
+│    Table:   ││    Table:   │                                                            │    Table:   ││    Table:   │
+│ store_sales ││store_returns│                                                            │catalog_sales││catalog_retur│
+│             ││             │                                                            │             ││      ns     │
+│    Type:    ││    Type:    │                                                            │    Type:    ││             │
+│  Sequential ││  Sequential │                                                            │  Sequential ││    Type:    │
+│     Scan    ││     Scan    │                                                            │     Scan    ││  Sequential │
+│             ││             │                                                            │             ││     Scan    │
+│ Projections:││ Projections:│                                                            │ Projections:││             │
+│  ss_item_sk ││  sr_item_sk │                                                            │  cs_item_sk ││ Projections:│
+│ss_ticket_num││sr_ticket_num│                                                            │cs_order_numb││  cr_item_sk │
+│     ber     ││     ber     │                                                            │      er     ││cr_order_numb│
+│ss_sold_date_││sr_return_amt│                                                            │cs_sold_date_││      er     │
+│      sk     ││ sr_net_loss │                                                            │      sk     ││cr_return_amo│
+│ ss_store_sk ││             │                                                            │cs_catalog_pa││     unt     │
+│ ss_promo_sk ││             │                                                            │    ge_sk    ││ cr_net_loss │
+│ss_ext_sales_││             │                                                            │ cs_promo_sk ││             │
+│    price    ││             │                                                            │cs_ext_sales_││             │
+│ss_net_profit││             │                                                            │    price    ││             │
+│             ││             │                                                            │cs_net_profit││             │
+│             ││             │                                                            │             ││             │
+│~2,880,4...  ││~287,514 rows│                                                            │~1,441,5...  ││~144,067 rows│
+└─────────────┘└─────────────┘                                                            └─────────────┘└─────────────┘

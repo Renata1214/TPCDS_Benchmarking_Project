@@ -1,0 +1,113 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE select  count(*)  from store_sales     ,household_demographics      ,time_dim, store where ss_sold_time_sk = time_dim.t_time_sk        and ss_hdemo_sk = household_demographics.hd_demo_sk      and ss_store_sk = s_store_sk     and time_dim.t_hour = 8     and time_dim.t_minute >= 30     and household_demographics.hd_dep_count = 5     and store.s_store_name = 'ese' order by count(*) limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0137s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│      count_star() ASC     │
+│                           │
+│           1 row           │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│    UNGROUPED_AGGREGATE    │
+│    ────────────────────   │
+│        Aggregates:        │
+│        count_star()       │
+│                           │
+│           1 row           │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+│  ss_store_sk = s_store_sk │                                                                        │
+│                           │                                                                        │
+│         1,816 rows        │                                                                        │
+│          (0.00s)          │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │         TABLE_SCAN        │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │        Table: store       │
+│                           │                                                          │   Type: Sequential Scan   │
+│        Conditions:        │                                                          │                           │
+│  ss_hdemo_sk = hd_demo_sk │                                                          │        Projections:       │
+│                           ├───────────────────────────────────────────┐              │         s_store_sk        │
+│                           │                                           │              │                           │
+│                           │                                           │              │          Filters:         │
+│                           │                                           │              │     s_store_name='ese'    │
+│                           │                                           │              │                           │
+│         5,305 rows        │                                           │              │           2 rows          │
+│          (0.00s)          │                                           │              │          (0.00s)          │
+└─────────────┬─────────────┘                                           │              └───────────────────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         TABLE_SCAN        │
+│    ────────────────────   │                             │    ────────────────────   │
+│      Join Type: INNER     │                             │           Table:          │
+│                           │                             │   household_demographics  │
+│        Conditions:        │                             │                           │
+│ss_sold_time_sk = t_time_sk│                             │   Type: Sequential Scan   │
+│                           │                             │                           │
+│                           ├──────────────┐              │        Projections:       │
+│                           │              │              │         hd_demo_sk        │
+│                           │              │              │                           │
+│                           │              │              │          Filters:         │
+│                           │              │              │       hd_dep_count=5      │
+│                           │              │              │                           │
+│        45,329 rows        │              │              │          720 rows         │
+│          (0.01s)          │              │              │          (0.00s)          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││           FILTER          │
+│    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││  (t_time_sk BETWEEN 28800 │
+│   Type: Sequential Scan   ││         AND 75599)        │
+│                           ││                           │
+│        Projections:       ││                           │
+│      ss_sold_time_sk      ││                           │
+│        ss_hdemo_sk        ││                           │
+│        ss_store_sk        ││                           │
+│                           ││                           │
+│        45,329 rows        ││         1,800 rows        │
+│          (0.09s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        │
+                             │    ────────────────────   │
+                             │      Table: time_dim      │
+                             │   Type: Sequential Scan   │
+                             │                           │
+                             │        Projections:       │
+                             │         t_time_sk         │
+                             │                           │
+                             │          Filters:         │
+                             │          t_hour=8         │
+                             │        t_minute>=30       │
+                             │                           │
+                             │         1,800 rows        │
+                             │          (0.00s)          │
+                             └───────────────────────────┘

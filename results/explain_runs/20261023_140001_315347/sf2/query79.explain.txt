@@ -1,0 +1,163 @@
+
+┌─────────────────────────────┐
+│┌───────────────────────────┐│
+││       Physical Plan       ││
+│└───────────────────────────┘│
+└─────────────────────────────┘
+┌───────────────────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│  tpcds_sf2.main.customer  │
+│      .c_last_name ASC     │
+│  tpcds_sf2.main.customer  │
+│     .c_first_name ASC     │
+│  substr(ms.s_city, 1, 30) │
+│             ASC           │
+│       ms.profit ASC       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│        c_last_name        │
+│        c_first_name       │
+│   substr(s_city, 1, 30)   │
+│      ss_ticket_number     │
+│            amt            │
+│           profit          │
+│                           │
+│        ~50,092 rows       │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│      c_customer_sk =      │              │
+│       ss_customer_sk      │              │
+│                           │              │
+│        ~50,092 rows       │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         SEQ_SCAN          ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│      Table: customer      ││      ss_ticket_number     │
+│   Type: Sequential Scan   ││       ss_customer_sk      │
+│                           ││           s_city          │
+│        Projections:       ││            amt            │
+│       c_customer_sk       ││           profit          │
+│        c_last_name        ││                           │
+│        c_first_name       ││                           │
+│                           ││                           │
+│          Filters:         ││                           │
+│ optional: Dynamic Filter  ││                           │
+│       (c_last_name)       ││                           │
+│                           ││                           │
+│       ~144,000 rows       ││        ~41,174 rows       │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         PROJECTION        │
+                             │    ────────────────────   │
+                             │             #0            │
+                             │             #1            │
+                             │             #2            │
+                             │__internal_decompress_strin│
+                             │           g(#3)           │
+                             │             #4            │
+                             │             #5            │
+                             │                           │
+                             │        ~41,174 rows       │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │       HASH_GROUP_BY       │
+                             │    ────────────────────   │
+                             │          Groups:          │
+                             │             #0            │
+                             │             #1            │
+                             │             #2            │
+                             │             #3            │
+                             │                           │
+                             │        Aggregates:        │
+                             │          sum(#4)          │
+                             │          sum(#5)          │
+                             │                           │
+                             │        ~41,174 rows       │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         PROJECTION        │
+                             │    ────────────────────   │
+                             │      ss_ticket_number     │
+                             │       ss_customer_sk      │
+                             │         ss_addr_sk        │
+                             │           s_city          │
+                             │       ss_coupon_amt       │
+                             │       ss_net_profit       │
+                             │                           │
+                             │        ~41,185 rows       │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         PROJECTION        │
+                             │    ────────────────────   │
+                             │             #0            │
+                             │             #1            │
+                             │             #2            │
+                             │             #3            │
+                             │             #4            │
+                             │__internal_compress_string_│
+                             │        uhugeint(#5)       │
+                             │__internal_compress_integra│
+                             │     l_usmallint(#6, 1)    │
+                             │                           │
+                             │        ~41,185 rows       │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │
+                             │    ────────────────────   │
+                             │      Join Type: INNER     │
+                             │                           │
+                             │        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+                             │  ss_hdemo_sk = hd_demo_sk │                                                                        │
+                             │                           │                                                                        │
+                             │        ~41,185 rows       │                                                                        │
+                             └─────────────┬─────────────┘                                                                        │
+                             ┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                                                          │         PROJECTION        │
+                             │    ────────────────────   │                                                          │    ────────────────────   │
+                             │      Join Type: INNER     │                                                          │             #0            │
+                             │                           │                                                          │                           │
+                             │        Conditions:        ├───────────────────────────────────────────┐              │                           │
+                             │ss_sold_date_sk = d_date_sk│                                           │              │                           │
+                             │                           │                                           │              │                           │
+                             │       ~205,926 rows       │                                           │              │        ~1,440 rows        │
+                             └─────────────┬─────────────┘                                           │              └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │                             │           FILTER          ││           FILTER          │
+                             │    ────────────────────   │                             │    ────────────────────   ││    ────────────────────   │
+                             │      Join Type: INNER     │                             │ (d_date_sk BETWEEN 2450816││  ((hd_dep_count = 8) OR   │
+                             │                           │                             │        AND 2452642)       ││  (hd_vehicle_count > 0))  │
+                             │        Conditions:        ├──────────────┐              │                           ││                           │
+                             │  ss_store_sk = s_store_sk │              │              │                           ││                           │
+                             │                           │              │              │                           ││                           │
+                             │      ~1,047,408 rows      │              │              │        ~10,436 rows       ││        ~1,440 rows        │
+                             └─────────────┬─────────────┘              │              └─────────────┬─────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         SEQ_SCAN          ││         SEQ_SCAN          ││         SEQ_SCAN          ││         SEQ_SCAN          │
+                             │    ────────────────────   ││    ────────────────────   ││    ────────────────────   ││    ────────────────────   │
+                             │     Table: store_sales    ││        Table: store       ││      Table: date_dim      ││           Table:          │
+                             │   Type: Sequential Scan   ││   Type: Sequential Scan   ││   Type: Sequential Scan   ││   household_demographics  │
+                             │                           ││                           ││                           ││                           │
+                             │        Projections:       ││        Projections:       ││        Projections:       ││   Type: Sequential Scan   │
+                             │      ss_sold_date_sk      ││         s_store_sk        ││         d_date_sk         ││                           │
+                             │        ss_store_sk        ││           s_city          ││                           ││        Projections:       │
+                             │        ss_hdemo_sk        ││                           ││          Filters:         ││         hd_demo_sk        │
+                             │      ss_ticket_number     ││          Filters:         ││          d_dow=1          ││        hd_dep_count       │
+                             │       ss_customer_sk      ││  s_number_employees>=200  ││  d_year>=1998 AND d_year< ││      hd_vehicle_count     │
+                             │         ss_addr_sk        ││   AND s_number_employees< ││           =2000           ││                           │
+                             │       ss_coupon_amt       ││            =295           ││                           ││                           │
+                             │       ss_net_profit       ││                           ││                           ││                           │
+                             │                           ││                           ││                           ││                           │
+                             │      ~5,760,749 rows      ││          ~4 rows          ││        ~10,436 rows       ││        ~7,200 rows        │
+                             └───────────────────────────┘└───────────────────────────┘└───────────────────────────┘└───────────────────────────┘
