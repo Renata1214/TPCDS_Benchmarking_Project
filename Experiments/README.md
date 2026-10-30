@@ -2,6 +2,7 @@
 
 Each query experiment has its own folder:
 
+- `Experiments_Q4/` — Query 4 baseline and Experiment 1 SQL, with benchmark and plan results.
 - `Experiments_Q22/` — Query 22 original and Experiment 1.
 - `Experiments_Q47/` — Query 47 SQL, explain output, and historical benchmark runs.
 - `Experiments_Q74/` — Query 74 baseline and Experiment 1 with the forced join order.
@@ -21,6 +22,16 @@ python3 ../run_benchmark.py \
   --baseline query22_original.sql \
   --experiment query22_Experiment1.sql \
   --name q22
+```
+
+For Query 4:
+
+```bash
+cd /mnt/c/Users/Regina/TPCDS/Experiments/Experiments_Q4
+python3 ../run_benchmark.py \
+  --baseline query4_noChanges.sql \
+  --experiment query4_experiment1.sql \
+  --name q4
 ```
 
 For Query 47:
@@ -77,10 +88,11 @@ cd /mnt/c/Users/Regina/TPCDS/Experiments/Experiments_Q74
 python3 ../run_explain_analyze.py q74_experiment1.sql --scale-gb 1 --warmups 1
 ```
 
-For Query 22 or Query 47, substitute the desired SQL file, for example
-`query22_Experiment1.sql` or `query47_Experiment1.sql`. The utility accepts
-SQL with or without a leading `EXPLAIN ANALYZE`. It also recognizes the Q74
-optimizer setup/reset wrapper, executes the warm-up and plan in the same
+For Query 4, Query 22, or Query 47, substitute the desired SQL file, for example
+`query4_experiment1.sql`, `query22_Experiment1.sql`, or
+`query47_Experiment1.sql`. The utility accepts SQL with or without a leading
+`EXPLAIN ANALYZE`. It also recognizes the Q74 optimizer setup/reset wrapper,
+executes the warm-up and plan in the same
 DuckDB session, then restores and verifies the setting after plan capture.
 Output and metadata are saved to a new timestamped folder next to the input SQL.
 
