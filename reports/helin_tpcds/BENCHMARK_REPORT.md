@@ -125,52 +125,107 @@ main run as if it used the same configuration.
 ## 6. Query optimization experiments
 
 Four queries were tested using original and optimized SQL snapshots under
-`queries/optimization/`. These experiments used the SF1 database and are
-separate from the cross-scale benchmark.
+`queries/optimization/`. The optimized SQL is generated from the four
+optimized `.tpl` files combined with the official templates for the other
+95 queries. These experiments cover SF1, SF2, SF4, and SF8 and are separate
+from the original cross-scale benchmark in Sections 3–5.
 
-### Statement-timing summary
+### Optimization approach
 
-| Query | Original median | Optimized median | Speedup | Time reduction |
+- **Q23:** Combines customer sales into one customer-level aggregate for
+   total sales and period sales, uses a window maximum to identify the
+   qualifying threshold, removes the item description from the frequent-item
+   grouping key, and applies the item/customer filters after combining sales
+   channels. The narrower grouping and consolidated logical aggregation may
+   reduce intermediate work; the report does not claim a particular physical
+   plan or forced CTE materialization.
+- **Q39:** Restricts inventory aggregation to the two requested months and
+   groups by warehouse key rather than carrying warehouse name through the
+   intermediate aggregate. This can reduce input rows and grouping width.
+- **Q59:** Uses aggregate `FILTER` clauses for weekday sales and restricts
+   the weeks entering the aggregate to the query's selected month range.
+   This can reduce conditional-expression and aggregation work.
+- **Q95:** Replaces the `web_sales` order self-join with a per-order
+   `MIN`/`MAX` warehouse check, avoiding pair generation for orders with
+   multiple sales rows. The returns check is expressed as direct order
+   membership.
+
+No optimized template or generated query uses an explicit `MATERIALIZED`
+hint or materialized table. The original templates and original SQL
+snapshots remain the baseline.
+
+### Experimental setup and methodology
+
+- Engine for the comparison: DuckDB Python 1.5.6 in the selected
+   `.venv-benchmark` environment. The original cross-scale benchmark above
+   used DuckDB CLI 1.4.3; its timings are a separate dataset of measurements.
+- Databases: the same local TPC-DS SF1, SF2, SF4, and SF8 databases for each
+   original/optimized pair.
+- Each pair was validated and timed through one read-only DuckDB connection.
+   The timed operation includes execution and fetching all result rows for
+   every statement in the query.
+- One warm-up per version was excluded from five measured runs. The order
+   alternated by repetition: original then optimized, followed by optimized
+   then original, and repeated.
+- Each reported time is the median of the five end-to-end measured runs.
+   Speedup is original median divided by optimized median. The CSV stores
+   medians to six decimals and speedups to three decimals; speedups are
+   calculated from unrounded timings, so a ratio of displayed medians can
+   differ by 0.001 after rounding.
+- Validation is duplicate-aware multiset comparison: row counts must match,
+   each original row must match one still-unmatched optimized row, and numeric
+   values use both absolute and relative tolerances of 1e-9.
+
+The selected Python environment reports DuckDB 1.5.6, and the comparison
+script prints the engine version when run. The saved CSV does not itself
+contain a version column; the script has been updated so future output
+records the version for every row.
+
+### Final optimization comparison
+
+All 16 query/scale comparisons in
+`reports/optimization/four_queries_final.csv` have status `OK` and
+`results_match=True`.
+
+| Scale | Query | Original median (s) | Optimized median (s) | Speedup |
 |---|---:|---:|---:|---:|
-| Q23 | 0.104 s | 0.064 s | 1.625x | 38.5% |
-| Q39 | 0.050 s | 0.026 s | 1.923x | 48.0% |
-| Q59 | 0.031 s | 0.030 s | 1.033x | 3.2% |
-| Q95 | 0.058 s | 0.013 s | 4.462x | 77.6% |
+| SF1 | Q23 | 0.061492 | 0.049405 | 1.245x |
+| SF1 | Q39 | 0.024609 | 0.021064 | 1.168x |
+| SF1 | Q59 | 0.030368 | 0.015459 | 1.964x |
+| SF1 | Q95 | 0.043171 | 0.006687 | 6.456x |
+| SF2 | Q23 | 0.108043 | 0.087126 | 1.240x |
+| SF2 | Q39 | 0.026124 | 0.023758 | 1.100x |
+| SF2 | Q59 | 0.036718 | 0.030474 | 1.205x |
+| SF2 | Q95 | 0.051638 | 0.009393 | 5.498x |
+| SF4 | Q23 | 0.210513 | 0.148325 | 1.419x |
+| SF4 | Q39 | 0.040675 | 0.030481 | 1.334x |
+| SF4 | Q59 | 0.060722 | 0.048957 | 1.240x |
+| SF4 | Q95 | 0.088965 | 0.013440 | 6.619x |
+| SF8 | Q23 | 0.491021 | 0.304439 | 1.613x |
+| SF8 | Q39 | 0.079402 | 0.057173 | 1.389x |
+| SF8 | Q59 | 0.089895 | 0.066455 | 1.353x |
+| SF8 | Q95 | 0.168389 | 0.024095 | 6.989x |
 
-These figures come from the statement-timing method documented in
-`reports/optimization/README.md`. Multi-statement timings were summed per
-run before calculating medians.
+### Correctness and interpretation
 
-A separate wall-clock measurement produced different speedups:
+The validation details are recorded per statement in the CSV. Q23 has two
+statements; its second statement returns zero rows on SF1 and SF4, so those
+cases demonstrate agreement only for the tested databases. Q39 has two
+statements and both matched at every scale. Q59 and Q95 each have one
+statement and matched at every scale. These results validate only the saved
+SQL and datasets tested; they do not prove equivalence for all possible
+datasets or generated parameter values.
 
-| Query | Original wall-clock median | Optimized wall-clock median | Speedup |
-|---|---:|---:|---:|
-| Q23 | 0.130556 s | 0.087777 s | 1.487x |
-| Q39 | 0.072818 s | 0.043330 s | 1.681x |
-| Q59 | 0.049257 s | 0.048136 s | 1.023x |
-| Q95 | 0.075556 s | 0.028380 s | 2.662x |
+All four queries were faster in these measurements. Q39's SF2 improvement
+was modest (1.100x), while Q95 showed the largest measured speedups. These
+are environment-specific timings, not official TPC-DS scores or guarantees.
+No execution-plan statistics were collected for this comparison, and the
+measurements do not isolate the effect of individual rewrite components.
 
-The two timing methods are reported separately and should not be mixed.
-Q23, Q39, and particularly Q95 improved in these experiments. Q59's small
-change may be within measurement variability.
-
-### Correctness checks
-
-- Q23: the first statement returned one row for each version with an exact
-  match; the second statement returned zero rows for both versions on the
-  tested dataset.
-- Q39: the first statement returned 176 rows for each version. Exact
-  multiset comparison showed differences, but key-pair comparison matched
-  all 176 key pairs and found no numeric differences above 1e-9. This
-  supports equivalence within the tested tolerance, not bit-for-bit identity.
-  The second statement returned five exact matching rows.
-- Q59: 100 rows matched exactly.
-- Q95: one row matched exactly.
-
-These checks cover the tested SF1 dataset and do not establish correctness
-for every possible dataset or scale factor.
-
-Detailed query-by-query optimization changes, their rationale, timing results, and correctness limitations are documented in `reports/helin_tpcds/QUERY_OPTIMIZATION_NOTES.md`.
+The optimization comparison must not be mixed with the baseline benchmark
+measurements in Sections 3–5: the engine version, timing harness, repetitions,
+and measured query workload differ. Detailed rewrite notes are in
+`reports/helin_tpcds/QUERY_OPTIMIZATION_NOTES.md`.
 
 ## 7. Limitations and outstanding work
 
@@ -178,7 +233,8 @@ Detailed query-by-query optimization changes, their rationale, timing results, a
    reconstructed from raw metrics because DuckDB did not shut down normally.
    SF10 benchmarking remains pending.
 2. SF8 Q22 has no measured result because its warm-up failed.
-3. The optimization experiments cover only four queries at SF1.
+3. The optimization comparison covers only four queries at SF1, SF2, SF4,
+   and SF8; the other 95 queries have not yet been optimized in this project.
 4. Runtime results depend on the environment, memory availability, DuckDB
    settings, and workload state.
 5. The current results are measurements from this environment, not universal
@@ -190,9 +246,9 @@ The original run provides three-repetition measurements for SF1, SF2, and SF4,
 plus partial query coverage at SF8. The separate SF5 run adds three measured
 repetitions for all 99 queries, although its summary had to be reconstructed
 because DuckDB stalled during shutdown. SF10 remains outstanding, so the full
-intended scale-factor set has not yet been evaluated. The query optimization
-experiments show encouraging improvements for Q23, Q39, and Q95, while Q59
-shows only a small change.
+intended scale-factor set has not yet been evaluated. In the separate
+four-scale optimization comparison, all four assigned queries improved and
+all 16 original-versus-optimized result validations passed.
 
 ## 9. Supporting artifacts
 

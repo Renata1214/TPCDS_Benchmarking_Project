@@ -124,19 +124,72 @@ summary even when it has fewer measured repetitions than expected.
 
 ## 6. Optimization artifacts
 
-The original and optimized SQL snapshots are stored in:
+The original SQL snapshots and source templates are preserved in:
 
 - `queries/optimization/original/`
-- `queries/optimization/optimized/`
+- `Kit/DSGen-software-code-4.0.0/query_templates/`
+
+The four optimized source templates are in `query_templates_optimized/`.
+`scripts/generate_optimized_queries.sh` copies the official template set to
+a fresh temporary build directory, overlays each optimized template, checks
+that the combined set contains all 99 numbered templates and no
+`MATERIALIZED` hints, then invokes `scripts/01_generate_queries.sh`. The
+temporary directory is created from tracked inputs for each invocation; the
+workflow does not depend on `.opt_work/` or another pre-existing ignored
+directory. The four generated SF1 SQL snapshots are in
+`queries/optimization/optimized/`.
+
+After all team optimizations are integrated, generate separate original and
+combined optimized query roots for SF1, SF2, SF4, and SF8 with the project
+container:
+
+```bash
+docker compose run --build --rm --no-deps --entrypoint bash tpcds -lc '
+  set -euo pipefail
+  export DSQGEN_BIN=/usr/local/bin/dsqgen
+  export RNGSEED=20261031
+  export QUERY_ROOT=/workspace/queries/workloads/original
+  export RESULTS_DIR=/workspace/results/generation/original
+  bash scripts/01_generate_queries.sh 1 2 4 8
+  export QUERY_ROOT=/workspace/queries/workloads/optimized
+  export RESULTS_DIR=/workspace/results/generation/optimized
+  bash scripts/generate_optimized_queries.sh 1 2 4 8
+'
+```
+
+The same explicit DSQGen seed is used for both template sets so corresponding
+original and optimized queries use matching parameter values. This generates
+all 99 queries per scale while keeping baseline and optimized SQL in separate
+roots. It does not run the benchmark. Once the full
+optimization set and datasets are ready, the paired comparison harness can
+validate and time all 99 original/optimized pairs at each scale:
+
+```bash
+./.venv-benchmark/bin/python scripts/compare_and_time.py \
+  --orig-dir queries/workloads/original \
+  --opt-dir queries/workloads/optimized \
+  --db-dir duckdb \
+  --scales 1 2 4 8 \
+  --queries $(seq 1 99) \
+  --repeats 5 \
+  --warmups 1 \
+  --out reports/optimization/all_queries_original_vs_optimized.csv
+```
+
+The comparison uses DuckDB Python 1.5.6, read-only connections, duplicate-
+aware result validation with absolute and relative tolerances of 1e-9, one
+warm-up, five measured repetitions, and alternating original/optimized order.
+Run only after the team finishes integration; this all-query comparison has
+not been run as part of this update.
 
 Supporting analysis is stored in:
 
 - `reports/optimization/README.md`
-- `reports/optimization/statement_timing_summary.csv`
-- `reports/optimization/wall_clock_summary.csv`
+- `reports/optimization/four_queries_final.csv`
+- `reports/helin_tpcds/QUERY_OPTIMIZATION_NOTES.md`
 
-The statement-timing and wall-clock results use different measurement
-methods. Keep them labelled separately in any reproduced report.
+Keep the original baseline benchmark measurements separate from the paired
+optimization comparison; they use different DuckDB versions and runners.
 
 ## 7. Reproducibility notes
 
