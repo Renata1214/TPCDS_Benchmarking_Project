@@ -1,199 +1,227 @@
-# Reproducing the TPC-DS work completed so far
+# Reproducing the TPC-DS experiments
 
-This guide records the repository workflow, the effects of Docker, the current state of the generated artifacts, and the steps to finish and reproduce the work. It covers the TPC-DS portion only; it is not a completed TPC-DI implementation or an official TPC benchmark audit.
+This guide walks through the project from a fresh checkout to generated data,
+query execution, and benchmark results. It covers the TPC-DS work in this
+repository; it is not an official TPC benchmark audit or a reproduction of the
+TPC-DI project.
 
-## What this project currently does
+The recommended workflow uses Docker Compose so Linux tools and DuckDB are
+consistent on Linux, WSL 2, and macOS. Generated files are written to the
+repository through a bind mount and remain there after the container exits.
 
-The current workflow has three main stages:
+## What you will reproduce
 
-1. Generate SQL from the TPC-DS query templates for a physical scale, using the DuckDB dialect.
-2. Generate the TPC-DS `.dat` files for that scale, create a DuckDB database from `tools/tpcds.sql`, and load the files into that database.
-3. Run each generated query against the corresponding database, recording timings, statuses, resource measurements, logs, and per-scale summaries.
+1. Generate scale-specific DuckDB SQL from the TPC-DS query templates.
+2. Generate TPC-DS data and load it into DuckDB databases.
+3. Execute the full query workload at each selected scale and save measurements.
+4. Optionally compare the baseline and optimized forms of Queries 4, 22, 47,
+   and 74, including a result-equivalence check.
 
-With `REFERENCE_SCALE_GB=10`, a relative factor maps to these physical scales:
+The default reference scale is 10 GB. The factors below therefore create 1, 2,
+4, and 8 GB datasets:
 
-| Relative factor | Physical scale | Raw data directory | DuckDB database | Query directory |
-|---:|---:|---|---|---|
-| `0.1` | 1 GB | `data/sf1/` | `duckdb/tpcds_sf1.duckdb` | `queries/sf1/` |
-| `0.2` | 2 GB | `data/sf2/` | `duckdb/tpcds_sf2.duckdb` | `queries/sf2/` |
-| `0.4` | 4 GB | `data/sf4/` | `duckdb/tpcds_sf4.duckdb` | `queries/sf4/` |
-| `0.8` | 8 GB | `data/sf8/` | `duckdb/tpcds_sf8.duckdb` | `queries/sf8/` |
-| `1.0` | 10 GB | `data/sf10/` | `duckdb/tpcds_sf10.duckdb` | `queries/sf10/` |
+| Factor | Scale | Data | Database |
+|---:|---:|---|---|
+| `0.1` | SF1 (1 GB) | `data/sf1/` | `duckdb/tpcds_sf1.duckdb` |
+| `0.2` | SF2 (2 GB) | `data/sf2/` | `duckdb/tpcds_sf2.duckdb` |
+| `0.4` | SF4 (4 GB) | `data/sf4/` | `duckdb/tpcds_sf4.duckdb` |
+| `0.8` | SF8 (8 GB) | `data/sf8/` | `duckdb/tpcds_sf8.duckdb` |
 
-The data generator accepts whole-number GB scales. Use factors whose product with the reference scale is a whole number of at least 1.
+These are physical data sizes, not the official TPC-DS scale-factor set.
+Generating the larger scales can take considerable time and disk space.
 
-## What Docker changes, and what it does not
+## 1. Install prerequisites and get the project
 
-The Docker files provide a Debian-based environment, DuckDB CLI version 1.4.3 by default, and Linux TPC-DS generator executables. Docker Compose mounts the whole project directory into the container (`.:/workspace`), so files written under `/workspace` are also written into this Windows/WSL project folder and persist after the container exits.
+Install Git and Docker with the Docker Compose v2 plugin. On Windows, use
+Docker Desktop with WSL 2 integration and run these commands inside your WSL
+distribution. On macOS, use Docker Desktop and a Bash-compatible terminal. On
+Linux, Docker Engine and the Compose plugin are sufficient. Install Python 3
+on the host as well if you plan to run the experiment comparisons or generate
+the charts; those scripts use the Python standard library.
 
-There are two distinct effects:
-
-- `docker compose build` builds the image. It does not, by itself, run the entrypoint against the mounted project.
-- `docker compose run` starts the container and runs `docker-entrypoint.sh`. The entrypoint copies the image's `dsdgen` and `dsqgen` executables into `Kit/DSGen-software-code-4.0.0/tools/` in the mounted project. Those are tracked files, so this replaces the local executables and appears in `git status`.
-
-The default Compose command then runs `scripts/run_tpcds.sh`. That can generate or replace query SQL, raw data, databases, and results inside the mounted project. In the current scripts, the query generator creates workloads for physical scales 1, 2, 4, and 8 GB and mirrors SF1 SQL to `queries/all_templates/`. Running the container with a shell instead of the workflow still invokes the entrypoint and replaces the two generator executables first.
-
-The container removal flag (`--rm`) removes the container, **not** files written through the bind mount and not the built image. Docker may also use different CPU, memory, filesystem, and cache settings than native WSL. For comparable measurements, run all scales using the same environment and resource limits.
-
-The changed generator binaries and some changed SQL files are consistent with the container entrypoint and workflow having run, but Git status alone cannot prove which command changed every SQL file. The reason `dsdgen` segfaulted has not been established. The timing of the binary replacement does not prove that Docker caused the crash; do not use the replacement executable for further data generation until it has been checked.
-
-The data-generation script supports `DSDGEN_BIN` so Docker's generator can be used without replacing the local executable. Rebuild the image without cache so the TPC-DS tools are compiled using the image's Debian libraries, then run only the data/load script:
+Clone the repository and enter its root directory:
 
 ```bash
-cd /mnt/c/Users/Regina/TPCDS
-docker compose build --no-cache tpcds
+git clone https://github.com/Renata1214/TPCDS_Benchmarking_Project.git
+cd TPCDS_Benchmarking_Project
+```
+
+If reproducing a particular branch or revision, check it out before continuing:
+
+```bash
+git checkout <branch-or-commit>
+```
+
+Build the project image. It includes DuckDB CLI 1.4.3 by default and builds the
+Linux TPC-DS generator tools:
+
+```bash
+docker --version
+docker compose version
+docker compose build tpcds
+```
+
+Use the same Docker environment and resource allocation for every run you
+compare. The repository is mounted at `/workspace` in the container; data,
+databases, generated SQL, and results persist in the checkout.
+
+## 2. Generate the SQL workload
+
+Generate the queries for SF1, SF2, SF4, and SF8:
+
+```bash
+docker compose run --rm tpcds \
+  bash scripts/01_generate_queries.sh 1 2 4 8
+```
+
+The SQL is written to `queries/sf1/`, `queries/sf2/`, `queries/sf4/`, and
+`queries/sf8/`. The SF1 workload is also copied to `queries/all_templates/`.
+The generated files use the repository's query templates, including its
+experimental rewrites. The generation report is
+`results/generation_results.csv`.
+
+Regenerating queries replaces the generated SQL in the selected scale
+directories. For exact comparisons with an earlier run, keep and use the same
+generated SQL and source revision.
+
+## 3. Generate and load the data
+
+Generate the four datasets and load them into DuckDB:
+
+```bash
+docker compose run --rm \
+  -e REFERENCE_SCALE_GB=10 \
+  -e DSDGEN_VERBOSE=N \
+  tpcds bash scripts/04_generate_scale_data.sh 0.1 0.2 0.4 0.8
+```
+
+The script creates the 25 TPC-DS `.dat` files for each scale, creates the
+database schema, and loads the data. It reuses a complete dataset and database
+if both already exist. Generation and load information is appended to
+`results/data_generation.csv`.
+
+To rebuild a scale after confirming no other process is writing to it, pass
+`FORCE=1` for that run:
+
+```bash
 docker compose run --rm \
   -e REFERENCE_SCALE_GB=10 \
   -e FORCE=1 \
   tpcds bash scripts/04_generate_scale_data.sh 0.4
 ```
 
-The image sets `DSDGEN_BIN` to its freshly compiled `/usr/local/bin/dsdgen`. Its entrypoint no longer copies the container tools into the mounted project. `FORCE=1` is required because the existing SF4 files are incomplete. Never run this at the same time as another process writing to SF4.
+This replaces the selected scale's generated data and database; it does not
+resume an interrupted generation. Do not use `FORCE=1` unless you intend to
+regenerate that scale.
 
-## State recorded on 2026-10-21
+## 4. Run the full query workload
 
-This is a snapshot, not a live status check. Check the actual files and processes before following recovery commands.
-
-| Scale | Raw files observed | Database observed | State |
-|---|---:|---|---|
-| SF1 | 25/25 | `tpcds_sf1.duckdb` present | Generated and loaded |
-| SF2 | 25/25 | `tpcds_sf2.duckdb` present | Generated and loaded |
-| SF4 | 23/25 named files | No SF4 database | **Incomplete**. `web_sales.dat` and `web_returns.dat` were present after an interrupted generation, but their contents cannot be assumed complete; `web_site.dat` and `dbgen_version.dat` were missing. |
-| SF8 | 11/25 files at the last check | No SF8 database | **In progress**. WSL process PID `87682` was generating SF8. |
-
-The presence of a non-empty `.dat` file does not prove it is complete. Only treat a scale as ready after `dsdgen` exits successfully and all expected data files are present. A database is ready only after the loading script finishes successfully.
-
-At that snapshot, the scale-specific SQL directories contained 99 official `query<number>.sql` files for SF2, SF4, and SF8. SF1 contained those plus a pre-existing `query_0.sql`; the benchmark runner accepts that filename as well. For strictly comparable reports, check that each scale uses the same intended query set before benchmarking. Regenerating with `scripts/01_generate_queries.sh 1 2 4 8` creates the current scale-specific workload; it overwrites SQL files in those scale directories and rewrites the legacy SF1 copy in `queries/all_templates/`.
-
-## Safe recovery of the current data
-
-1. **Do not run two generators against the same scale at once.** Check for active generators from WSL:
-
-   ```bash
-   pgrep -af dsdgen
-   ```
-
-   Let the existing SF8 process finish. Do not replace the generator executable while it is running.
-
-2. **Check SF8 after the process exits.** Confirm it exited successfully and that all 25 expected `.dat` files exist and are non-empty. If generation was interrupted or failed, the current script has no resumable checkpoint: regenerate SF8 completely after confirming no other generator is writing to it:
-
-   ```bash
-   cd /mnt/c/Users/Regina/TPCDS
-   REFERENCE_SCALE_GB=10 FORCE=1 bash scripts/04_generate_scale_data.sh 0.8
-   ```
-
-3. **Restore the committed generators only after all `dsdgen` processes have stopped**, if the committed binaries are the downloaded versions you want to use. This restores only those two tracked files:
-
-   ```bash
-   cd /mnt/c/Users/Regina/TPCDS
-   git restore -- Kit/DSGen-software-code-4.0.0/tools/dsdgen Kit/DSGen-software-code-4.0.0/tools/dsqgen
-   ```
-
-   `git restore` replaces the working copies with the repository's committed versions. Check `git status` first and do not use this if you have a different local binary you need to keep.
-
-4. **Regenerate SF4 completely.** The previous SF4 generation was interrupted, and table-only `dsdgen` attempts segfaulted with the current executable. Do not rely on the resulting partial files. After the generator binary has been verified and no generator is running:
-
-   ```bash
-   cd /mnt/c/Users/Regina/TPCDS
-   REFERENCE_SCALE_GB=10 FORCE=1 bash scripts/04_generate_scale_data.sh 0.4
-   ```
-
-   This replaces SF4 raw files and its SF4 database only. If `dsdgen` segfaults again, stop and keep the error output; do not continue to benchmark SF4.
-
-5. **Load SF8 after its raw data is complete.** If generation finished outside the scale script and the database does not yet exist, run the scale script without `FORCE`:
-
-   ```bash
-   cd /mnt/c/Users/Regina/TPCDS
-   REFERENCE_SCALE_GB=10 bash scripts/04_generate_scale_data.sh 0.8
-   ```
-
-   If the scale script itself completed successfully, do not load it again.
-
-Avoid running the generation script concurrently with Docker or another WSL generation command. In particular, never run two commands that target the same `data/sfN/` directory or DuckDB database.
-
-## Step-by-step reproduction
-
-### 1. Record the code and environment
-
-Keep a copy of the current project before restoring binaries or regenerating query files. Record:
+Run all generated queries at the four scales, with one warm-up pass and five
+measured executions per query:
 
 ```bash
-git status --short
-git diff --stat
-docker compose config
-docker --version
-docker compose version
+docker compose run --rm \
+  -e REFERENCE_SCALE_GB=10 \
+  -e WARMUP_RUNS=1 \
+  -e REPEATS=5 \
+  -e TIMEOUT_SECONDS=300 \
+  tpcds bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.4 0.8
 ```
 
-For a reproducible submission, commit or archive the source scripts, Docker configuration, query SQL used for the run, and a record of the exact generator and DuckDB versions. Do not package incomplete raw datasets as if they were finished.
+Warm-ups are excluded from the measurements. Increase `REPEATS` for more
+stable summaries, or adjust `TIMEOUT_SECONDS` for slower queries. The run
+creates a new timestamped directory under `results/benchmark_runs/` containing:
 
-### 2. Choose one execution environment
+- `query_metrics.csv`: one row per measured execution, with elapsed time,
+  CPU/memory metrics, status, and log path.
+- `summaries/query_summary_sfN.csv`: per-query timing and status summaries for
+  each physical scale.
+- `logs/`: individual DuckDB output and error logs.
+- `metadata.txt`: run settings and environment details.
 
-Use either Docker or WSL for a benchmark series; do not switch environments between scales. Docker provides pinned DuckDB CLI version 1.4.3 by default, but its entrypoint currently copies its compiled generator binaries into the project. WSL uses whatever Linux `dsdgen`, `dsqgen`, and DuckDB CLI are installed there. Record which path was used and all versions.
+Check the summary CSVs and execution statuses before interpreting the timings.
+Results depend on hardware, filesystem, DuckDB version, cache state, and
+settings; they should not be presented as official TPC-DS results.
 
-The Docker command is:
+To generate charts and a sortable per-query CSV for a completed run, use its
+timestamped directory:
 
 ```bash
-cd /mnt/c/Users/Regina/TPCDS
-docker compose build
+python3 scripts/plot_benchmark_results.py \
+  results/benchmark_runs/<run_id>
 ```
 
-Do not run `docker compose run` concurrently with WSL generation. Each container invocation runs the entrypoint, so it also replaces the local generator executables.
+The generated report is in
+`results/benchmark_runs/<run_id>/plots/index.html`; ranked details are in
+`plots/ranked_queries.csv`.
 
-### 3. Generate the query workload
+### Run the main workflow in one command
 
-When using the scale-specific query generation script:
+After building the image, the same stages can be run together. This generates
+queries if needed, generates/loads the requested data factors, and benchmarks
+them:
 
 ```bash
-cd /mnt/c/Users/Regina/TPCDS
-bash scripts/01_generate_queries.sh 1 2 4 8
+docker compose run --rm \
+  -e REFERENCE_SCALE_GB=10 \
+  -e WARMUP_RUNS=1 \
+  -e REPEATS=5 \
+  tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.4 0.8
 ```
 
-For exact reproduction of an existing benchmark, preserve and reuse the exact SQL files instead of regenerating them with a different `dsqgen` build. Verify the same query filenames are present in each scale directory. In particular, decide whether the non-standard `query_0.sql` in `queries/sf1/` is part of the workload; the current runner recognizes it, while it is not among the 99 official numbered templates.
+## 5. Compare the query experiments
 
-### 4. Generate and load data scales
-
-Run one scale at a time to simplify monitoring and recovery. For example, SF4 and SF8:
+The experiment runner compares result rows as multisets before timing, so
+differences in row order do not count as mismatches, but duplicate counts are
+preserved. If results differ, it stops without reporting a timing comparison.
+The runner defaults to SF1, two warm-ups, ten measured runs, and Docker. Run
+these commands from the repository root after SF1 has been generated and
+loaded:
 
 ```bash
-cd /mnt/c/Users/Regina/TPCDS
-REFERENCE_SCALE_GB=10 bash scripts/04_generate_scale_data.sh 0.4
-REFERENCE_SCALE_GB=10 bash scripts/04_generate_scale_data.sh 0.8
+python3 Experiments/run_benchmark.py \
+  --baseline Experiments/Experiments_Q4/query4_noChanges.sql \
+  --experiment Experiments/Experiments_Q4/query4_experiment1.sql \
+  --name q4
+
+python3 Experiments/run_benchmark.py \
+  --baseline Experiments/Experiments_Q22/query22_original.sql \
+  --experiment Experiments/Experiments_Q22/query22_Experiment1.sql \
+  --name q22
+
+python3 Experiments/run_benchmark.py \
+  --baseline Experiments/Experiments_Q47/query47_noChanges.sql \
+  --experiment Experiments/Experiments_Q47/query47_Experiment1.sql \
+  --name q47
+
+python3 Experiments/run_benchmark.py \
+  --baseline Experiments/Experiments_Q74/q74_nochanges.sql \
+  --experiment Experiments/Experiments_Q74/q74_experiment1.sql \
+  --name q74
 ```
 
-The script reuses complete raw data if the corresponding database is missing, then loads the data into the matching database. If data is incomplete, it stops instead of silently mixing it with another run. `FORCE=1` regenerates all raw files for each requested scale and replaces that scale's database; it does not resume an interrupted run.
+Each command creates a new timestamped results directory in the corresponding
+`Experiments/Experiments_QN/` folder. Inspect its `benchmark/` directory:
 
-For each scale, verify all 25 expected `.dat` files exist and are non-empty, the command exits with status zero, and `duckdb/tpcds_sfN.duckdb` exists. The script appends generation/load timings and byte sizes to `results/data_generation.csv`.
+- `result_validation.csv` records whether the baseline and experiment returned
+  equivalent results.
+- `qN_summary.csv` reports the measured timing statistics.
+- `qN_measurements.csv` contains the individual measured runs.
+- `metadata.txt` and `run_metadata.txt` record the run configuration.
 
-### 5. Run the benchmark
+For a different scale or run count, add options such as
+`--scale-gb 4 --warmups 2 --repeats 10`. Query 74's optimizer settings are
+handled by the experiment runner.
 
-For SF1, SF2, SF4, and SF8:
+## 6. Find the query-specific optimization reports
 
-```bash
-cd /mnt/c/Users/Regina/TPCDS
-REFERENCE_SCALE_GB=10 REPEATS=5 WARMUP_RUNS=1 \
-  bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.4 0.8
-```
+This guide explains how to reproduce the runs. The specific query rewrites,
+their optimization rationale, and analysis should be described in the
+corresponding query reports. Add the final report links or paths here:
 
-The benchmark keeps one DuckDB process open per scale. Each query is warmed and then measured in that process. Warmup runs are excluded from timing summaries. The timestamped directory under `results/benchmark_runs/` contains:
-
-- `query_metrics.csv`: measured-run metrics and paths.
-- `summaries/query_summary_sfN.csv`: one summary CSV per physical scale.
-- `logs/sfN/`: DuckDB query output and error logs.
-- `metadata.txt`: scale factors, run counts, DuckDB version, and machine details.
-
-The runner records elapsed time, CPU time, sampled resident memory, execution status, timeout/errors, and database size. Results are specific to the machine, filesystem, DuckDB version, query files, and warm-cache setup; this is a course benchmark workflow, not an official TPC-DS result.
-
-### 6. Preserve and interpret results
-
-Keep each timestamped benchmark directory intact and associate it with the exact query SQL, generator binary/version, database scale, Docker/WSL choice, hardware allocation, and run settings. Compare scale summaries only when those conditions are consistent. The report should identify failed and timed-out queries, not silently omit them.
-
-The project deliverables described in `readme.md` are a PDF implementation/results report and a ZIP containing the reproducible source and instructions. Dataset and database files are large; include them only if required, and otherwise document how to regenerate them.
-
-## Current limitations to resolve before final submission
-
-- SF4 and SF8 were incomplete in the recorded snapshot; they must not be reported as completed or benchmarked until successfully regenerated and loaded.
-- The `dsdgen` segmentation fault is unresolved. A Docker run and table-only invocation both failed in the observed session; this does not establish the root cause.
-- Docker runtime currently replaces the local generator executables through the bind mount. Use one verified tool build consistently and record its version.
-- SF1 has an extra `query_0.sql`; normalize the intended query set across scales before comparing results.
-- The benchmark runner should be tested end-to-end after the DuckDB CLI is available, including verification that each scale-specific summary contains the expected query count.
+| Query | Optimization report |
+|---|---|
+| Q4 | Add link/path to the Query 4 report |
+| Q22 | Add link/path to the Query 22 report |
+| Q47 | Add link/path to the Query 47 report |
+| Q74 | Add link/path to the Query 74 report |

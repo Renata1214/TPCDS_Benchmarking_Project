@@ -45,7 +45,7 @@ Configuration can be supplied through environment variables. For example, to run
 docker compose run --rm -e REPEATS=3 -e REFERENCE_SCALE_GB=10 tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.5
 ```
 
-The repository is mounted at `/workspace`, so generated data, DuckDB databases, query files, and benchmark results remain in the project directories on the host after the container exits. The image compiles the Linux `dsdgen` and `dsqgen` tools and installs them into the mounted tools directory when it starts. Open an interactive shell instead of running the workflow with:
+The repository is mounted at `/workspace`, so generated data, DuckDB databases, query files, and benchmark results remain in the project directories on the host after the container exits. The image builds the Linux `dsdgen` and `dsqgen` tools and keeps them inside the container; starting it does not overwrite the tools in the mounted project. Open an interactive shell instead of running the workflow with:
 
 ```bash
 docker compose run --rm tpcds bash
