@@ -8,13 +8,15 @@ with year_total as (
        ,c_login customer_login
        ,c_email_address customer_email_address
        ,d_year dyear
-       ,sum(ss_ext_list_price-ss_ext_discount_amt) year_total
+       ,sum(net_amount) year_total
        ,'s' sale_type
  from customer
-     ,store_sales
-     ,date_dim
+     ,(select ss_customer_sk, d_year,
+       sum(ss_ext_list_price-ss_ext_discount_amt) net_amount
+       from store_sales join date_dim on ss_sold_date_sk=d_date_sk
+       where d_year in (2001,2001+1)
+       group by ss_customer_sk,d_year) store_sales
  where c_customer_sk = ss_customer_sk
-   and ss_sold_date_sk = d_date_sk
  group by c_customer_id
          ,c_first_name
          ,c_last_name
@@ -32,13 +34,15 @@ with year_total as (
        ,c_login customer_login
        ,c_email_address customer_email_address
        ,d_year dyear
-       ,sum(ws_ext_list_price-ws_ext_discount_amt) year_total
+       ,sum(net_amount) year_total
        ,'w' sale_type
  from customer
-     ,web_sales
-     ,date_dim
+     ,(select ws_bill_customer_sk, d_year,
+       sum(ws_ext_list_price-ws_ext_discount_amt) net_amount
+       from web_sales join date_dim on ws_sold_date_sk=d_date_sk
+       where d_year in (2001,2001+1)
+       group by ws_bill_customer_sk,d_year) web_sales
  where c_customer_sk = ws_bill_customer_sk
-   and ws_sold_date_sk = d_date_sk
  group by c_customer_id
          ,c_first_name
          ,c_last_name

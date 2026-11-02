@@ -24,16 +24,22 @@ cs as
    group by d_year, cs_item_sk, cs_bill_customer_sk
    ),
 ss as
-  (select d_year AS ss_sold_year, ss_item_sk,
+  (select d_year as ss_sold_year, ss_item_sk,
     ss_customer_sk,
     sum(ss_quantity) ss_qty,
     sum(ss_wholesale_cost) ss_wc,
-    sum(ss_sales_price) ss_sp
+    sum(ss_sales_price) ss_sp,
+    ws.ws_qty as ws_qty, ws.ws_wc as ws_wc, ws.ws_sp as ws_sp,
+    cs.cs_qty as cs_qty, cs.cs_wc as cs_wc, cs.cs_sp as cs_sp
    from store_sales
    left join store_returns on sr_ticket_number=ss_ticket_number and ss_item_sk=sr_item_sk
    join date_dim on ss_sold_date_sk = d_date_sk
+   left join ws on (ws_sold_year=d_year and ws_item_sk=ss_item_sk and ws_customer_sk=ss_customer_sk)
+   left join cs on (cs_sold_year=d_year and cs_item_sk=ss_item_sk and cs_customer_sk=ss_customer_sk)
    where sr_ticket_number is null
-   group by d_year, ss_item_sk, ss_customer_sk
+     and (coalesce(ws.ws_qty,0)>0 or coalesce(cs.cs_qty,0)>0)
+   group by d_year, ss_item_sk, ss_customer_sk,
+     ws.ws_qty, ws.ws_wc, ws.ws_sp, cs.cs_qty, cs.cs_wc, cs.cs_sp
    )
  select 
 ss_sold_year, ss_item_sk, ss_customer_sk,
@@ -43,10 +49,8 @@ coalesce(ws_qty,0)+coalesce(cs_qty,0) other_chan_qty,
 coalesce(ws_wc,0)+coalesce(cs_wc,0) other_chan_wholesale_cost,
 coalesce(ws_sp,0)+coalesce(cs_sp,0) other_chan_sales_price
 from ss
-left join ws on (ws_sold_year=ss_sold_year and ws_item_sk=ss_item_sk and ws_customer_sk=ss_customer_sk)
-left join cs on (cs_sold_year=ss_sold_year and cs_item_sk=ss_item_sk and cs_customer_sk=ss_customer_sk)
-where (coalesce(ws_qty,0)>0 or coalesce(cs_qty, 0)>0) and ss_sold_year=2000
-order by 
+where ss_sold_year=2000
+order by
   ss_sold_year, ss_item_sk, ss_customer_sk,
   ss_qty desc, ss_wc desc, ss_sp desc,
   other_chan_qty,

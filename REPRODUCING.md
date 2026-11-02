@@ -80,6 +80,11 @@ The generated files use the repository's query templates, including its
 experimental rewrites. The generation report is
 `results/generation_results.csv`.
 
+The generator makes a temporary copy of the template directory and normalizes
+`.tpl` line endings in that copy before invoking `dsqgen`. This allows edited
+templates saved with Windows CRLF endings to generate successfully without
+changing the source templates.
+
 Regenerating queries replaces the generated SQL in the selected scale
 directories. For exact comparisons with an earlier run, keep and use the same
 generated SQL and source revision.
@@ -154,6 +159,18 @@ python3 scripts/plot_benchmark_results.py \
 The generated report is in
 `results/benchmark_runs/<run_id>/plots/index.html`; ranked details are in
 `plots/ranked_queries.csv`.
+
+To compare two completed benchmark runs, generate a per-query CSV table, SVG
+graphs by scale, a workload-median graph, and an HTML report:
+
+```bash
+python3 scripts/compare_benchmark_runs.py \
+  results/benchmark_runs/<first_run_id> \
+  results/benchmark_runs/<second_run_id>
+```
+
+By default, comparison files are written under
+`<second_run>/plots/comparison_<first_run_id>/`.
 
 ### Run the main workflow in one command
 

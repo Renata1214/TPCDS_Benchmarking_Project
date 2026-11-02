@@ -35,6 +35,23 @@ fi
     exit 1
 }
 
+NORMALIZED_TEMPLATES="$(mktemp -d "${TMPDIR:-/tmp}/tpcds-query-templates.XXXXXX")"
+cleanup() {
+    case "$NORMALIZED_TEMPLATES" in
+        "${TMPDIR:-/tmp}"/tpcds-query-templates.*)
+            rm -rf -- "$NORMALIZED_TEMPLATES"
+            ;;
+        *)
+            printf 'ERROR: Refusing to remove unexpected temporary path: %s\n' \
+                "$NORMALIZED_TEMPLATES" >&2
+            ;;
+    esac
+}
+trap cleanup EXIT
+cp -a "$TEMPLATES/." "$NORMALIZED_TEMPLATES/"
+find "$NORMALIZED_TEMPLATES" -type f -name '*.tpl' \
+    -exec sed -i 's/\r$//' {} +
+
 if [[ "$DSQGEN_BIN" != /* ]]; then
     DSQGEN_BIN="$PWD/$DSQGEN_BIN"
 fi
@@ -79,7 +96,7 @@ for scale in "${SCALES[@]}"; do
         rm -f -- "$sql_file" "$error_file"
         if (
             "$DSQGEN_BIN" \
-                -DIRECTORY "$TEMPLATES" \
+                -DIRECTORY "$NORMALIZED_TEMPLATES" \
                 -TEMPLATE "$template" \
                 -DIALECT duckdb \
                 -SCALE "$scale" \
@@ -102,7 +119,7 @@ for scale in "${SCALES[@]}"; do
             printf '%s,%s,%s,OK,\n' "$scale" "$number" "$template" >> "$REPORT"
             rm -f -- "$error_file"
         else
-            error="$(tr '\n' ' ' < "$error_file" | sed 's/"/""/g')"
+            error="$({ cat "$sql_file"; cat "$error_file"; } | tr '\n' ' ' | sed 's/"/""/g')"
             printf '%s,%s,%s,FAILED,%s\n' \
                 "$scale" "$number" "$template" "$(csv_quote "$error")" >> "$REPORT"
             rm -f -- "$sql_file"
