@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Example: docker compose run --rm -e REFERENCE_SCALE_GB=10 tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.4 0.8
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"

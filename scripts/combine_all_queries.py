@@ -1,3 +1,5 @@
+# Example: python3 scripts/combine_all_queries.py
+
 from pathlib import Path
 import re
 

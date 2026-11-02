@@ -1,93 +1,88 @@
 #!/usr/bin/env bash
+# Example: bash scripts/03_summarize_results.sh
+# Or specify a report and output: bash scripts/03_summarize_results.sh results/execution_results_<timestamp>.csv results/summary.txt
+set -Eeuo pipefail
 
-RESULTS="/mnt/c/Users/Regina/TPCDS/results"
-
-INPUT="$RESULTS/execution_results.csv"
-OUTPUT="$RESULTS/query_compatibility_summary.txt"
-
-working=$(awk -F',' 'NR>1 && $2=="WORKING" {count++} END {print count+0}' "$INPUT")
-failed=$(awk -F',' 'NR>1 && $2=="FAILED" {count++} END {print count+0}' "$INPUT")
-timeout=$(awk -F',' 'NR>1 && $2=="TIMEOUT" {count++} END {print count+0}' "$INPUT")
-
-total=$((working + failed + timeout))
-
-{
-    echo "============================================================"
-    echo "TPC-DS / DuckDB Query Compatibility Report"
-    echo "============================================================"
-    echo
-    echo "Database:"
-    echo "  tpcds_sf1.duckdb"
-    echo
-    echo "TPC-DS source:"
-    echo "  Official TPC-DS 4.0.0 query templates"
-    echo
-    echo "Dialect:"
-    echo "  Custom duckdb.tpl derived from ansi.tpl"
-    echo
-    echo "Scale factor:"
-    echo "  SF1"
-    echo
-    echo "------------------------------------------------------------"
-    echo "SUMMARY"
-    echo "------------------------------------------------------------"
-    echo
-    echo "Total tested : $total"
-    echo "Working      : $working"
-    echo "Failed       : $failed"
-    echo "Timed out    : $timeout"
-    echo
-    echo
-
-    echo "============================================================"
-    echo "WORKING QUERIES"
-    echo "============================================================"
-    echo
-
-    awk -F',' '
-        NR > 1 && $2 == "WORKING" {
-            printf "Query %s -- %s seconds\n", $1, $3
-        }
-    ' "$INPUT"
-
-    echo
-    echo "============================================================"
-    echo "FAILED / INCOMPATIBLE QUERIES"
-    echo "============================================================"
-    echo
-
-} > "$OUTPUT"
-
-# We use Python's CSV parser for the detailed section because
-# error descriptions can contain commas.
-python3 - "$INPUT" "$OUTPUT" <<'PY'
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+python3 - "$ROOT_DIR" "$@" <<'PY'
 import csv
 import sys
+from pathlib import Path
 
-input_file = sys.argv[1]
-output_file = sys.argv[2]
+root = Path(sys.argv[1])
+args = sys.argv[2:]
+if len(args) > 2:
+    raise SystemExit(
+        "Usage: bash scripts/03_summarize_results.sh [input.csv] [output.txt]"
+    )
 
-with open(input_file, newline="", encoding="utf-8") as f:
-    rows = list(csv.DictReader(f))
+if args:
+    input_path = Path(args[0]).expanduser().resolve()
+else:
+    reports = list((root / "results").glob("execution_results_*.csv"))
+    if not reports:
+        raise SystemExit(
+            f"No execution_results_*.csv reports found in {root / 'results'}"
+        )
+    input_path = max(reports, key=lambda path: path.stat().st_mtime)
 
-with open(output_file, "a", encoding="utf-8") as out:
+if not input_path.is_file():
+    raise SystemExit(f"Input report does not exist: {input_path}")
+
+output_path = (
+    Path(args[1]).expanduser().resolve()
+    if len(args) == 2
+    else root / "results" / "query_compatibility_summary.txt"
+)
+
+with input_path.open(newline="", encoding="utf-8-sig") as source:
+    reader = csv.DictReader(source)
+    required = {"query", "status", "elapsed_seconds"}
+    missing = required.difference(reader.fieldnames or [])
+    if missing:
+        raise SystemExit(
+            f"Input report is missing required columns: {', '.join(sorted(missing))}"
+        )
+    rows = list(reader)
+
+status_counts = {}
+for row in rows:
+    status = row["status"]
+    status_counts[status] = status_counts.get(status, 0) + 1
+
+output_path.parent.mkdir(parents=True, exist_ok=True)
+with output_path.open("w", encoding="utf-8", newline="\n") as output:
+    output.write("TPC-DS / DuckDB Query Execution Summary\n")
+    output.write(f"Input report: {input_path}\n\n")
+    output.write("SUMMARY\n")
+    output.write(f"Total rows: {len(rows)}\n")
+    for status in sorted(status_counts):
+        output.write(f"{status}: {status_counts[status]}\n")
+
+    output.write("\nWORKING QUERIES\n")
+    for row in rows:
+        if row["status"] == "WORKING":
+            output.write(
+                f"Scale SF{row.get('scale_gb', '')}, query {row['query']}"
+                f" -- {row['elapsed_seconds']} seconds\n"
+            )
+
+    output.write("\nFAILED / TIMED-OUT / SKIPPED QUERIES\n")
     for row in rows:
         if row["status"] == "WORKING":
             continue
+        output.write(
+            f"Scale SF{row.get('scale_gb', '')}, query {row['query']}\n"
+            f"Status: {row['status']}\n"
+            f"Elapsed: {row['elapsed_seconds']} seconds\n"
+        )
+        if row.get("error_type"):
+            output.write(f"Error type: {row['error_type']}\n")
+        if row.get("error_summary"):
+            output.write(f"Error: {row['error_summary']}\n")
+        if row.get("log_file"):
+            output.write(f"Full log: {row['log_file']}\n")
+        output.write("-" * 60 + "\n")
 
-        out.write(f"Query {row['query']}\n")
-        out.write(f"Status: {row['status']}\n")
-        out.write(f"Elapsed: {row['elapsed_seconds']} seconds\n")
-
-        if row["error_type"]:
-            out.write(f"Error type: {row['error_type']}\n")
-
-        if row["error_summary"]:
-            out.write(f"Error: {row['error_summary']}\n")
-
-        out.write(f"Full log: {row['log_file']}\n")
-        out.write("-" * 60 + "\n\n")
+print(f"Summary written to: {output_path}")
 PY
-
-echo "Summary written to:"
-echo "$OUTPUT"

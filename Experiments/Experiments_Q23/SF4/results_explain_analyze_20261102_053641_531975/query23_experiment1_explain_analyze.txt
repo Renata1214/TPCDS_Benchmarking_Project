@@ -1,0 +1,223 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with frequent_ss_items as  (select i_item_sk item_sk   from store_sales       ,date_dim       ,item   where ss_sold_date_sk = d_date_sk     and ss_item_sk = i_item_sk     and d_year in (1999,1999+1,1999+2,1999+3)   group by i_item_sk,d_date   having count(*) >4),  best_ss_customer as  (select c_customer_sk   from (select c_customer_sk, ssales, max(csales) over () tpcds_cmax         from (select c_customer_sk,                      sum(ss_quantity*ss_sales_price) ssales,                      sum(case when d_year in (1999,1999+1,1999+2,1999+3)                               then ss_quantity*ss_sales_price end) csales               from store_sales                    join customer on ss_customer_sk = c_customer_sk                    left join date_dim on ss_sold_date_sk = d_date_sk               group by c_customer_sk) per_customer) ranked   where ssales > (95/100.0) * tpcds_cmax)   select  sum(sales)  from (select cs_quantity*cs_list_price sales              ,cs_item_sk sold_item_sk              ,cs_bill_customer_sk sold_cust_sk        from catalog_sales            ,date_dim        where d_year = 1999          and d_moy = 1          and cs_sold_date_sk = d_date_sk       union all       select ws_quantity*ws_list_price             ,ws_item_sk             ,ws_bill_customer_sk        from web_sales            ,date_dim        where d_year = 1999          and d_moy = 1          and ws_sold_date_sk = d_date_sk) all_sales  where sold_item_sk in (select item_sk from frequent_ss_items)    and sold_cust_sk in (select c_customer_sk from best_ss_customer)  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.712s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌─────────────────────┐
+│        QUERY        │
+└──────────┬──────────┘
+┌──────────┴──────────┐
+│   EXPLAIN_ANALYZE   │
+│    ──────────────   │
+│        0 rows       │
+│       (0.00s)       │
+└──────────┬──────────┘
+┌──────────┴──────────┐
+│   STREAMING_LIMIT   │
+│    ──────────────   │
+│        1 row        │
+│       (0.00s)       │
+└──────────┬──────────┘
+┌──────────┴──────────┐
+│ UNGROUPED_AGGREGATE │
+│    ──────────────   │
+│     Aggregates:     │
+│       sum(#0)       │
+│                     │
+│        1 row        │
+│       (0.00s)       │
+└──────────┬──────────┘
+┌──────────┴──────────┐
+│      PROJECTION     │
+│    ──────────────   │
+│        sales        │
+│                     │
+│        0 rows       │
+│       (0.00s)       │
+└──────────┬──────────┘
+┌──────────┴──────────┐
+│      HASH_JOIN      │
+│    ──────────────   │
+│      Join Type:     │
+│      RIGHT_SEMI     │
+│                     │
+│     Conditions:     ├─────────────────────────────────────────────────────────┐
+│  #0 = sold_cust_sk  │                                                         │
+│                     │                                                         │
+│        0 rows       │                                                         │
+│       (0.00s)       │                                                         │
+└──────────┬──────────┘                                                         │
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐
+│      PROJECTION     │                                              │      HASH_JOIN      │
+│    ──────────────   │                                              │    ──────────────   │
+│          #0         │                                              │      Join Type:     │
+│                     │                                              │      RIGHT_SEMI     │
+│                     │                                              │                     │
+│                     │                                              │     Conditions:     ├─────────────────────────────────────────────────────────┐
+│                     │                                              │  #0 = sold_item_sk  │                                                         │
+│                     │                                              │                     │                                                         │
+│        9 rows       │                                              │      3,243 rows     │                                                         │
+│       (0.00s)       │                                              │       (0.01s)       │                                                         │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                                         │
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                                              ┌──────────┴──────────┐
+│        FILTER       │                                              │      PROJECTION     │                                              │        UNION        │
+│    ──────────────   │                                              │    ──────────────   │                                              │    ──────────────   │
+│   (CAST(ssales AS   │                                              │          #0         │                                              │                     │
+│   DOUBLE) > (0.95 * │                                              │                     │                                              │                     │
+│  CAST(tpcds_cmax AS │                                              │                     │                                              │                     ├──────────────────────────────────┐
+│       DOUBLE)))     │                                              │                     │                                              │                     │                                  │
+│                     │                                              │                     │                                              │                     │                                  │
+│        9 rows       │                                              │      1,423 rows     │                                              │        0 rows       │                                  │
+│       (0.01s)       │                                              │       (0.00s)       │                                              │       (0.00s)       │                                  │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                              └──────────┬──────────┘                                  │
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                                              ┌──────────┴──────────┐                       ┌──────────┴──────────┐
+│      PROJECTION     │                                              │        FILTER       │                                              │      PROJECTION     │                       │      PROJECTION     │
+│    ──────────────   │                                              │    ──────────────   │                                              │    ──────────────   │                       │    ──────────────   │
+│    c_customer_sk    │                                              │  (count_star() > 4) │                                              │        sales        │                       │ (CAST(ws_quantity AS│
+│        ssales       │                                              │                     │                                              │     sold_item_sk    │                       │   DECIMAL(17,0)) *  │
+│      tpcds_cmax     │                                              │                     │                                              │     sold_cust_sk    │                       │  CAST(ws_list_price │
+│                     │                                              │                     │                                              │                     │                       │  AS DECIMAL(17,2))) │
+│                     │                                              │                     │                                              │                     │                       │      ws_item_sk     │
+│                     │                                              │                     │                                              │                     │                       │ ws_bill_customer_sk │
+│                     │                                              │                     │                                              │                     │                       │                     │
+│     229,225 rows    │                                              │      1,423 rows     │                                              │     56,403 rows     │                       │     33,360 rows     │
+│       (0.00s)       │                                              │       (0.03s)       │                                              │       (0.00s)       │                       │       (0.00s)       │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                              └──────────┬──────────┘                       └──────────┬──────────┘
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                                              ┌──────────┴──────────┐                       ┌──────────┴──────────┐
+│      PROJECTION     │                                              │      PROJECTION     │                                              │      HASH_JOIN      │                       │      HASH_JOIN      │
+│    ──────────────   │                                              │    ──────────────   │                                              │    ──────────────   │                       │    ──────────────   │
+│          #0         │                                              │__internal_decompress│                                              │      Join Type:     │                       │      Join Type:     │
+│          #1         │                                              │ _integral_integer(#0│                                              │        INNER        │                       │        INNER        │
+│          #2         │                                              │         , 1)        │                                              │                     │                       │                     │
+│          #3         │                                              │          #1         │                                              │     Conditions:     ├───────────┐           │     Conditions:     ├───────────┐
+│                     │                                              │          #2         │                                              │  cs_sold_date_sk =  │           │           │  ws_sold_date_sk =  │           │
+│                     │                                              │                     │                                              │       d_date_sk     │           │           │       d_date_sk     │           │
+│                     │                                              │                     │                                              │                     │           │           │                     │           │
+│     229,225 rows    │                                              │    7,481,709 rows   │                                              │     56,403 rows     │           │           │     33,360 rows     │           │
+│       (0.00s)       │                                              │       (0.01s)       │                                              │       (0.00s)       │           │           │       (0.01s)       │           │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                              └──────────┬──────────┘           │           └──────────┬──────────┘           │
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                                              ┌──────────┴──────────┐┌──────────┴──────────┐┌──────────┴──────────┐┌──────────┴──────────┐
+│        WINDOW       │                                              │    HASH_GROUP_BY    │                                              │      TABLE_SCAN     ││        FILTER       ││      TABLE_SCAN     ││        FILTER       │
+│    ──────────────   │                                              │    ──────────────   │                                              │    ──────────────   ││    ──────────────   ││    ──────────────   ││    ──────────────   │
+│     Projections:    │                                              │       Groups:       │                                              │        Table:       ││  (d_date_sk BETWEEN ││        Table:       ││  (d_date_sk BETWEEN │
+│ max(csales) OVER () │                                              │          #0         │                                              │    catalog_sales    ││ 2450815 AND 2452653)││      web_sales      ││ 2450816 AND 2452642)│
+│                     │                                              │          #1         │                                              │                     ││                     ││                     ││                     │
+│                     │                                              │                     │                                              │        Type:        ││                     ││        Type:        ││                     │
+│                     │                                              │     Aggregates:     │                                              │   Sequential Scan   ││                     ││   Sequential Scan   ││                     │
+│                     │                                              │     count_star()    │                                              │                     ││                     ││                     ││                     │
+│                     │                                              │                     │                                              │     Projections:    ││                     ││     Projections:    ││                     │
+│                     │                                              │                     │                                              │   cs_sold_date_sk   ││                     ││   ws_sold_date_sk   ││                     │
+│                     │                                              │                     │                                              │     cs_quantity     ││                     ││     ws_quantity     ││                     │
+│                     │                                              │                     │                                              │    cs_list_price    ││                     ││    ws_list_price    ││                     │
+│                     │                                              │                     │                                              │      cs_item_sk     ││                     ││      ws_item_sk     ││                     │
+│                     │                                              │                     │                                              │ cs_bill_customer_sk ││                     ││ ws_bill_customer_sk ││                     │
+│                     │                                              │                     │                                              │                     ││                     ││                     ││                     │
+│     229,225 rows    │                                              │    7,481,709 rows   │                                              │     56,403 rows     ││       31 rows       ││     33,360 rows     ││       31 rows       │
+│       (0.02s)       │                                              │       (3.37s)       │                                              │       (0.00s)       ││       (0.00s)       ││       (0.05s)       ││       (0.00s)       │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                              └─────────────────────┘└──────────┬──────────┘└─────────────────────┘└──────────┬──────────┘
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                                                                     ┌──────────┴──────────┐                       ┌──────────┴──────────┐
+│    HASH_GROUP_BY    │                                              │      PROJECTION     │                                                                     │      TABLE_SCAN     │                       │      TABLE_SCAN     │
+│    ──────────────   │                                              │    ──────────────   │                                                                     │    ──────────────   │                       │    ──────────────   │
+│      Groups: #0     │                                              │      i_item_sk      │                                                                     │   Table: date_dim   │                       │   Table: date_dim   │
+│                     │                                              │        d_date       │                                                                     │                     │                       │                     │
+│     Aggregates:     │                                              │                     │                                                                     │        Type:        │                       │        Type:        │
+│       sum(#1)       │                                              │                     │                                                                     │   Sequential Scan   │                       │   Sequential Scan   │
+│       sum(#2)       │                                              │                     │                                                                     │                     │                       │                     │
+│                     │                                              │                     │                                                                     │     Projections:    │                       │     Projections:    │
+│                     │                                              │                     │                                                                     │      d_date_sk      │                       │      d_date_sk      │
+│                     │                                              │                     │                                                                     │                     │                       │                     │
+│                     │                                              │                     │                                                                     │       Filters:      │                       │       Filters:      │
+│                     │                                              │                     │                                                                     │     d_year=1999     │                       │     d_year=1999     │
+│                     │                                              │                     │                                                                     │       d_moy=1       │                       │       d_moy=1       │
+│                     │                                              │                     │                                                                     │                     │                       │                     │
+│     229,225 rows    │                                              │    8,793,115 rows   │                                                                     │       31 rows       │                       │       31 rows       │
+│       (1.22s)       │                                              │       (0.01s)       │                                                                     │       (0.00s)       │                       │       (0.00s)       │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                                                     └─────────────────────┘                       └─────────────────────┘
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐
+│      PROJECTION     │                                              │      PROJECTION     │
+│    ──────────────   │                                              │    ──────────────   │
+│    c_customer_sk    │                                              │__internal_compress_i│
+│          #1         │                                              │ ntegral_usmallint(#0│
+│ CASE  WHEN ((d_year │                                              │         , 1)        │
+│    IN (1999, 2000,  │                                              │          #1         │
+│  2001, 2002))) THEN │                                              │__internal_compress_i│
+│  (#1) ELSE NULL END │                                              │ ntegral_usmallint(#2│
+│                     │                                              │         , 1)        │
+│                     │                                              │                     │
+│   11,000,535 rows   │                                              │    8,793,115 rows   │
+│       (0.25s)       │                                              │       (0.13s)       │
+└──────────┬──────────┘                                              └──────────┬──────────┘
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐
+│      PROJECTION     │                                              │      HASH_JOIN      │
+│    ──────────────   │                                              │    ──────────────   │
+│    c_customer_sk    │                                              │      Join Type:     │
+│ (CAST(ss_quantity AS│                                              │        INNER        │
+│   DECIMAL(17,0)) *  │                                              │                     │
+│  CAST(ss_sales_price│                                              │     Conditions:     ├──────────────────────────────────┐
+│  AS DECIMAL(17,2))) │                                              │     ss_item_sk =    │                                  │
+│        d_year       │                                              │       i_item_sk     │                                  │
+│                     │                                              │                     │                                  │
+│   11,000,535 rows   │                                              │    8,793,115 rows   │                                  │
+│       (0.39s)       │                                              │       (0.09s)       │                                  │
+└──────────┬──────────┘                                              └──────────┬──────────┘                                  │
+┌──────────┴──────────┐                                              ┌──────────┴──────────┐                       ┌──────────┴──────────┐
+│      HASH_JOIN      │                                              │      HASH_JOIN      │                       │      TABLE_SCAN     │
+│    ──────────────   │                                              │    ──────────────   │                       │    ──────────────   │
+│   Join Type: LEFT   │                                              │      Join Type:     │                       │     Table: item     │
+│                     │                                              │        INNER        │                       │                     │
+│     Conditions:     │                                              │                     │                       │        Type:        │
+│  ss_sold_date_sk =  │                                              │     Conditions:     │                       │   Sequential Scan   │
+│       d_date_sk     ├──────────────────────────────────┐           │  ss_sold_date_sk =  ├───────────┐           │                     │
+│                     │                                  │           │       d_date_sk     │           │           │     Projections:    │
+│                     │                                  │           │                     │           │           │      i_item_sk      │
+│                     │                                  │           │                     │           │           │                     │
+│   11,000,535 rows   │                                  │           │    8,793,115 rows   │           │           │     46,000 rows     │
+│       (0.67s)       │                                  │           │       (0.12s)       │           │           │       (0.00s)       │
+└──────────┬──────────┘                                  │           └──────────┬──────────┘           │           └─────────────────────┘
+┌──────────┴──────────┐                       ┌──────────┴──────────┐┌──────────┴──────────┐┌──────────┴──────────┐
+│      HASH_JOIN      │                       │      TABLE_SCAN     ││      TABLE_SCAN     ││        FILTER       │
+│    ──────────────   │                       │    ──────────────   ││    ──────────────   ││    ──────────────   │
+│      Join Type:     │                       │   Table: date_dim   ││        Table:       ││  (d_date_sk BETWEEN │
+│        INNER        │                       │                     ││     store_sales     ││ 2450816 AND 2452642)│
+│                     │                       │        Type:        ││                     ││                     │
+│     Conditions:     │                       │   Sequential Scan   ││        Type:        ││                     │
+│   ss_customer_sk =  │                       │                     ││   Sequential Scan   ││                     │
+│     c_customer_sk   ├───────────┐           │     Projections:    ││                     ││                     │
+│                     │           │           │      d_date_sk      ││     Projections:    ││                     │
+│                     │           │           │        d_year       ││   ss_sold_date_sk   ││                     │
+│                     │           │           │                     ││      ss_item_sk     ││                     │
+│                     │           │           │                     ││                     ││                     │
+│   11,000,535 rows   │           │           │     73,049 rows     ││    8,793,115 rows   ││      1,461 rows     │
+│       (0.13s)       │           │           │       (0.00s)       ││       (0.24s)       ││       (0.00s)       │
+└──────────┬──────────┘           │           └─────────────────────┘└─────────────────────┘└──────────┬──────────┘
+┌──────────┴──────────┐┌──────────┴──────────┐                                              ┌──────────┴──────────┐
+│      TABLE_SCAN     ││      TABLE_SCAN     │                                              │      TABLE_SCAN     │
+│    ──────────────   ││    ──────────────   │                                              │    ──────────────   │
+│        Table:       ││   Table: customer   │                                              │   Table: date_dim   │
+│     store_sales     ││                     │                                              │                     │
+│                     ││        Type:        │                                              │        Type:        │
+│        Type:        ││   Sequential Scan   │                                              │   Sequential Scan   │
+│   Sequential Scan   ││                     │                                              │                     │
+│                     ││     Projections:    │                                              │     Projections:    │
+│     Projections:    ││    c_customer_sk    │                                              │      d_date_sk      │
+│    ss_customer_sk   ││                     │                                              │        d_date       │
+│   ss_sold_date_sk   ││                     │                                              │                     │
+│     ss_quantity     ││                     │                                              │       Filters:      │
+│    ss_sales_price   ││                     │                                              │   d_year>=1999 AND  │
+│                     ││                     │                                              │     d_year<=2002    │
+│                     ││                     │                                              │                     │
+│   11,000,535 rows   ││     233,000 rows    │                                              │      1,461 rows     │
+│       (0.27s)       ││       (0.00s)       │                                              │       (0.00s)       │
+└─────────────────────┘└─────────────────────┘                                              └─────────────────────┘
+┌─────────────┬──────────────┬───────────────┐
+│ c_last_name │ c_first_name │     sales     │
+│   varchar   │   varchar    │ decimal(38,2) │
+├─────────────┴──────────────┴───────────────┤
+│                   0 rows                   │
+└────────────────────────────────────────────┘

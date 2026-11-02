@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# Example: bash scripts/01_generate_queries.sh 1 2 4 8
 # ============================================================
 # Generate one SQL file per TPC-DS query template and scale
 # using the custom DuckDB dialect.

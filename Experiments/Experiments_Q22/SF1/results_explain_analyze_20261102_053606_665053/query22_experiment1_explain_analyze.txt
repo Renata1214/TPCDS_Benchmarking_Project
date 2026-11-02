@@ -1,0 +1,180 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with item_inventory as (     select inv_item_sk           ,sum(inv_quantity_on_hand) as quantity_sum           ,count(inv_quantity_on_hand) as quantity_count     from inventory     join date_dim       on inv_date_sk = d_date_sk     where d_month_seq between 1212 and 1212 + 11     group by inv_item_sk )  select  i_product_name              ,i_brand              ,i_class              ,i_category              ,sum(quantity_sum) / nullif(sum(quantity_count), 0) qoh        from item_inventory        join item          on inv_item_sk = i_item_sk        group by rollup(i_product_name                        ,i_brand                        ,i_class                        ,i_category) order by qoh, i_product_name, i_brand, i_class, i_category limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.167s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│    (sum(item_inventory    │
+│ .quantity_sum) / "nullif" │
+│    (sum(item_inventory    │
+│ .quantity_count), 0)) ASC │
+│    tpcds_sf1.main.item    │
+│    .i_product_name ASC    │
+│    tpcds_sf1.main.item    │
+│        .i_brand ASC       │
+│    tpcds_sf1.main.item    │
+│        .i_class ASC       │
+│    tpcds_sf1.main.item    │
+│      .i_category ASC      │
+│                           │
+│          100 rows         │
+│          (0.02s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       i_product_name      │
+│          i_brand          │
+│          i_class          │
+│         i_category        │
+│            qoh            │
+│                           │
+│        35,976 rows        │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│                           │
+│        Aggregates:        │
+│          sum(#4)          │
+│          sum(#5)          │
+│                           │
+│        35,976 rows        │
+│          (0.11s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│       i_product_name      │
+│          i_brand          │
+│          i_class          │
+│         i_category        │
+│        quantity_sum       │
+│       quantity_count      │
+│                           │
+│         9,000 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├──────────────┐
+│  i_item_sk = inv_item_sk  │              │
+│                           │              │
+│         9,000 rows        │              │
+│          (0.01s)          │              │
+└─────────────┬─────────────┘              │
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         PROJECTION        │
+│    ────────────────────   ││    ────────────────────   │
+│        Table: item        ││__internal_decompress_integ│
+│   Type: Sequential Scan   ││     ral_integer(#0, 1)    │
+│                           ││             #1            │
+│                           ││             #2            │
+│                           ││                           │
+│        17,999 rows        ││         9,000 rows        │
+│          (0.01s)          ││          (0.00s)          │
+└───────────────────────────┘└─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │       HASH_GROUP_BY       │
+                             │    ────────────────────   │
+                             │         Groups: #0        │
+                             │                           │
+                             │        Aggregates:        │
+                             │          sum(#1)          │
+                             │         count(#2)         │
+                             │                           │
+                             │         9,000 rows        │
+                             │          (0.62s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         PROJECTION        │
+                             │    ────────────────────   │
+                             │        inv_item_sk        │
+                             │    inv_quantity_on_hand   │
+                             │    inv_quantity_on_hand   │
+                             │                           │
+                             │       2,340,000 rows      │
+                             │          (0.00s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         PROJECTION        │
+                             │    ────────────────────   │
+                             │__internal_compress_integra│
+                             │     l_usmallint(#0, 1)    │
+                             │             #1            │
+                             │__internal_compress_integra│
+                             │  l_usmallint(#2, 2450815) │
+                             │                           │
+                             │       2,340,000 rows      │
+                             │          (0.03s)          │
+                             └─────────────┬─────────────┘
+                             ┌─────────────┴─────────────┐
+                             │         HASH_JOIN         │
+                             │    ────────────────────   │
+                             │      Join Type: INNER     │
+                             │                           │
+                             │        Conditions:        ├──────────────┐
+                             │  inv_date_sk = d_date_sk  │              │
+                             │                           │              │
+                             │       2,340,000 rows      │              │
+                             │          (0.04s)          │              │
+                             └─────────────┬─────────────┘              │
+                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+                             │         TABLE_SCAN        ││           FILTER          │
+                             │    ────────────────────   ││    ────────────────────   │
+                             │      Table: inventory     ││ (d_date_sk BETWEEN 2450815│
+                             │   Type: Sequential Scan   ││        AND 2452635)       │
+                             │                           ││                           │
+                             │        Projections:       ││                           │
+                             │        inv_date_sk        ││                           │
+                             │        inv_item_sk        ││                           │
+                             │    inv_quantity_on_hand   ││                           │
+                             │                           ││                           │
+                             │       2,340,000 rows      ││          365 rows         │
+                             │          (0.05s)          ││          (0.00s)          │
+                             └───────────────────────────┘└─────────────┬─────────────┘
+                                                          ┌─────────────┴─────────────┐
+                                                          │         TABLE_SCAN        │
+                                                          │    ────────────────────   │
+                                                          │      Table: date_dim      │
+                                                          │   Type: Sequential Scan   │
+                                                          │                           │
+                                                          │        Projections:       │
+                                                          │         d_date_sk         │
+                                                          │                           │
+                                                          │          Filters:         │
+                                                          │   d_month_seq>=1212 AND   │
+                                                          │      d_month_seq<=1223    │
+                                                          │                           │
+                                                          │          365 rows         │
+                                                          │          (0.00s)          │
+                                                          └───────────────────────────┘

@@ -78,6 +78,23 @@ benchmark SQL. Existing runs are not overwritten.
 `run_benchmark.py` so experiment SQL requiring preprocessing is handled
 consistently.
 
+## Plot baseline versus experiment across scales
+
+After running the per-query benchmarks, create one SVG chart per query with
+baseline and experiment mean times at SF1, SF2, SF4, and SF8. Error bars show
+the sample standard deviation. Charts are saved under each query's
+`Experiments_QN/results_comparison/` folder, and an index is written to
+`Experiments/results_comparison/index.html`. Query/scale pairs whose result
+multisets differ are marked as untimed rather than plotted.
+
+```bash
+python3 Experiments/plot_query_experiments.py
+```
+
+By default, the script reads `Experiments/query_experiment_summary.csv`.
+Provide `--summary-csv` and `--output-root` to select another summary or
+Experiments directory.
+
 ## EXPLAIN ANALYZE any experiment SQL
 
 From any experiment folder, run the common plan utility with a SQL file in that

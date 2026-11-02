@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Combine per-query EXPLAIN outputs into one document for each mode and scale."""
 
+# Example: python3 scripts/combine_explain_outputs.py results/explain_runs/<run_id>
+
 import argparse
 import re
 from pathlib import Path

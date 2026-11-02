@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Example: REFERENCE_SCALE_GB=10 REPEATS=5 WARMUP_RUNS=1 bash scripts/05_run_scale_benchmarks.sh 0.1 0.2 0.4 0.8
 set -Eeuo pipefail
 export LC_ALL=C
 

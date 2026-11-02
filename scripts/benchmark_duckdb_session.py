@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""Internal benchmark engine; normally invoke it through scripts/05_run_scale_benchmarks.sh."""
+
+# Example: python3 scripts/benchmark_duckdb_session.py --root . --duckdb-bin duckdb --reference-scale-gb 10 --timeout-seconds 300 --repeats 5 --warmup-runs 1 0.1 0.2 0.4 0.8
+
 import argparse
 import csv
 import os

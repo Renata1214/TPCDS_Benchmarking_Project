@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Example: REFERENCE_SCALE_GB=10 python3 scripts/explain_duckdb_queries.py --warmup-rounds 1 0.1 0.2 0.4 0.8
+
 import argparse
 import csv
 import os

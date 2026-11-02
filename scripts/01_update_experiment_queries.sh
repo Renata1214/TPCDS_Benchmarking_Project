@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Example: bash scripts/01_update_experiment_queries.sh 1 2 4 8
 set -Eeuo pipefail
 export LC_ALL=C
 

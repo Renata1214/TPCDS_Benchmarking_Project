@@ -8,6 +8,8 @@ parsed reliably are reported as partial or failed instead of being silently
 ignored.
 """
 
+# Example: python3 scripts/duckdb_plan_analysis.py results/explain_runs/<run_id>
+
 from __future__ import annotations
 
 import argparse

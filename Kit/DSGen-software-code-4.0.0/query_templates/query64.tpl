@@ -44,6 +44,10 @@ with cs_ui as
       ,catalog_returns
   where cs_item_sk = cr_item_sk
     and cs_order_number = cr_order_number
+    and cs_item_sk in (select i_item_sk from item
+      where i_color in ('[COLOR.1]','[COLOR.2]','[COLOR.3]','[COLOR.4]','[COLOR.5]','[COLOR.6]')
+      and i_current_price between [PRICE] and [PRICE] + 10
+      and i_current_price between [PRICE] + 1 and [PRICE] + 15)
   group by cs_item_sk
   having sum(cs_ext_list_price)>2*sum(cr_refunded_cash+cr_reversed_charge+cr_store_credit)),
 cross_sales as
@@ -86,6 +90,7 @@ cross_sales as
         ,item
   WHERE  ss_store_sk = s_store_sk AND
          ss_sold_date_sk = d1.d_date_sk AND
+         d1.d_year in ([YEAR], [YEAR]+1) AND
          ss_customer_sk = c_customer_sk AND
          ss_cdemo_sk= cd1.cd_demo_sk AND
          ss_hdemo_sk = hd1.hd_demo_sk AND
