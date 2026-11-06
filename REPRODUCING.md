@@ -8,13 +8,15 @@ From the repository root, run:
 bash reproduce.sh
 ```
 
-Docker Compose builds and starts the project container, generates the scale-specific queries, runs the benchmark, creates its plots, and compares it with the fixed baseline run `20261023_164300_814393`. The script prints the result and report locations when it finishes. With no argument, it reuses the existing DuckDB databases and does not generate data. To generate the data and databases as part of the run, use:
+Docker Compose builds and starts the project container, generates the scale-specific queries, runs the benchmark, creates its plots, and compares it with the fixed baseline run `20261023_164300_814393`. The script prints the result and report locations when it finishes. With no argument, it reuses the existing DuckDB databases and does not generate data. 
+
+To generate the data and databases as part of the run, use:
 
 ```bash
 bash reproduce.sh --generate-data
 ```
 
-Data is generated locally by the bundled TPC-DS tools, not downloaded.
+Data is generated locally by the bundled TPC-DS tools.
 
 The remainder of this document explains the steps performed in the background by this command, along with prerequisites, output details, and how to run individual steps.
 
@@ -27,8 +29,7 @@ The overall path is the following:
 3. Execute the full query workload at each selected scale and save measurements.
 4. Compare the new benchmark run with baseline `20261023_164300_814393`.
 
-The default reference scale is 10 GB. The factors below therefore create 1, 2,
-4, and 8 GB datasets:
+The default reference scale is 10 GB. The factors below therefore create 1, 2, 4, and 8 GB datasets:
 
 | Factor | Scale | Data | Database |
 |---:|---:|---|---|
@@ -37,12 +38,9 @@ The default reference scale is 10 GB. The factors below therefore create 1, 2,
 | `0.4` | SF4 (4 GB) | `data/sf4/` | `duckdb/tpcds_sf4.duckdb` |
 | `0.8` | SF8 (8 GB) | `data/sf8/` | `duckdb/tpcds_sf8.duckdb` |
 
-These are physical data sizes, not the official TPC-DS scale-factor set.
-Generating the larger scales can take considerable time and disk space.
+## 1. Install prerequisites
 
-## 1. Install prerequisites and get the project
-
-Install Git and Docker with the Docker Compose v2 plugin. On Windows, use Docker Desktop with WSL 2 integration and run these commands inside your WSL distribution. On macOS, use Docker Desktop and a Bash-compatible terminal. On Linux, Docker Engine and the Compose plugin are sufficient. Install Python 3 on the host as well if you plan to run the experiment comparisons or generate the charts; those scripts use the Python standard library.
+Install Git and Docker with the Docker Compose. On Windows, use Docker Desktop with WSL 2 integration and run these commands inside your WSL distribution. On macOS, use Docker Desktop and a Bash-compatible terminal. Install Python 3 on the host as well.
 
 Clone the repository and enter its root directory:
 
@@ -51,7 +49,7 @@ git clone https://github.com/Renata1214/TPCDS_Benchmarking_Project.git
 cd TPCDS_Benchmarking_Project
 ```
 
-Build the project image. It includes DuckDB CLI 1.4.3 by default and builds the Linux TPC-DS generator tools:
+Build the project image. It includes DuckDB CLI by default and builds the Linux TPC-DS generator tools:
 
 ```bash
 docker --version
