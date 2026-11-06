@@ -121,8 +121,6 @@ echo $! > results/data_generation.pid
 tail -f results/data_generation.log
 ```
 
-Press `Ctrl+C` to stop following the log; this does not stop the generator. Check whether it is still running with `ps -p "$(cat results/data_generation.pid)" -o pid,etime,%cpu,%mem,stat,cmd`, and review the final exit code with `wait "$(cat results/data_generation.pid)"` only in the shell that launched it. Check the generated file sizes from another terminal with `watch -n 5 'du -sh data/sf2 data/sf5 2>/dev/null; ls -lh duckdb/tpcds_sf2.duckdb duckdb/tpcds_sf5.duckdb 2>/dev/null'`. The database files appear and grow during the subsequent DuckDB loading phase.
-
 ### Run the query benchmark at each factor
 
 ```bash
