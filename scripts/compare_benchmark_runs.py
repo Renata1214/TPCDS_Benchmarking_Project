@@ -414,10 +414,7 @@ def write_html(path, table_path, chart_files, totals, labels):
         f"<p>Run 1: <code>{html.escape(labels[0])}</code>; "
         f"Run 2: <code>{html.escape(labels[1])}</code>. "
         "Per-query charts use median elapsed time on the vertical axis. "
-        "Each run contains five measured runs for all 99 queries at SF1/SF2/"
-        "SF4/SF8 with no failures or timeouts. Timeout limits differed "
-        "(1,800 seconds in Run 1 and 300 seconds in Run 2), but no queries "
-        "timed out. See the CSV for the full query-by-query comparison.</p>"
+        "See the CSV for the full query-by-query comparison.</p>"
         f'<p><a href="{relative_csv}">Download full comparison table (CSV)</a></p>'
         "<h2>Estimated workload totals</h2>"
         "<table><thead><tr><th>Scale</th>"

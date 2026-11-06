@@ -47,4 +47,4 @@ RUN chmod 0755 /usr/local/bin/tpcds-entrypoint
 
 WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/tpcds-entrypoint"]
-CMD ["bash", "scripts/run_tpcds.sh"]
+CMD ["bash", "scripts/run_tpcds.sh", "--generate-data"]
