@@ -26,26 +26,21 @@ The project evaluation will count for 30% of your total grade. This may seem und
 
 ## Running the TPC-DS scales with Docker
 
-Docker provides the Linux TPC-DS generator tools, DuckDB CLI, and benchmark prerequisites without installing them in Windows or WSL. Install Docker Desktop with its WSL 2 backend, open a terminal at the repository root, then build and run the container:
+Docker provides the Linux TPC-DS generator tools, DuckDB CLI, and benchmark prerequisites without installing them in Windows or WSL. Install Docker Desktop with its WSL 2 backend, open a Bash-compatible terminal at the repository root, and run:
 
 ```bash
-docker compose build
-docker compose run --rm tpcds
+bash reproduce.sh
 ```
 
-The default run uses reference scale 10 GB and factors `0.1`, `0.2`, and `0.5`. Pass factors to the workflow command to choose other scales:
+This builds and starts the container, regenerates the query files from the templates, runs the benchmark, creates plots, and compares the run with the fixed baseline `20261023_164300_814393`. Existing databases are reused by default. To generate the datasets and databases before benchmarking:
 
 ```bash
-docker compose run --rm tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.5 1.0
+bash reproduce.sh --generate-data
 ```
 
-Configuration can be supplied through environment variables. For example, to run each query three times:
+The script prints the result locations when it completes. `REFERENCE_SCALE_GB`, `REPEATS`, `WARMUP_RUNS`, and `TIMEOUT_SECONDS` can be set in the environment to adjust the workload settings.
 
-```bash
-docker compose run --rm -e REPEATS=3 -e REFERENCE_SCALE_GB=10 tpcds bash scripts/run_tpcds.sh 0.1 0.2 0.5
-```
-
-The repository is mounted at `/workspace`, so generated data, DuckDB databases, query files, and benchmark results remain in the project directories on the host after the container exits. The image builds the Linux `dsdgen` and `dsqgen` tools and keeps them inside the container; starting it does not overwrite the tools in the mounted project. Open an interactive shell instead of running the workflow with:
+The repository is mounted at `/workspace`, so generated data, DuckDB databases, query files, and benchmark results remain in the project directories on the host after the container exits. The image builds the Linux `dsdgen` and `dsqgen` tools and keeps them inside the container; starting it does not overwrite the tools in the mounted project. Open an interactive shell with:
 
 ```bash
 docker compose run --rm tpcds bash
@@ -55,29 +50,29 @@ For reliable benchmark timings, keep the Docker resource limits and host configu
 
 ## Running the TPC-DS scales directly in WSL
 
-The scripts below treat `REFERENCE_SCALE_GB` as the data size of relative factor `1.0`. The TPC-DS generator requires whole-number scale sizes of at least 1 GB. The default reference of `10` GB therefore makes factors `0.1`, `0.2`, and `0.5` generate 1, 2, and 5 GB datasets; factor `1.0` is 10 GB. Choose the largest reference your computer can handle, and choose factors/reference combinations whose products are whole-number GB values. An existing SF1 dataset/database is reused when the calculated physical scale is 1 GB.
+The scripts below treat `REFERENCE_SCALE_GB` as the data size of relative factor `1.0`. The TPC-DS generator requires whole-number scale sizes of at least 1 GB. The default reference of `10` GB therefore makes factors `0.1`, `0.2`, `0.4`, and `0.8` generate 1, 2, 4, and 8 GB datasets. Choose the largest reference your computer can handle, and choose factors/reference combinations whose products are whole-number GB values.
 
 ### One-command workflow
 
-From the WSL terminal, run this at the repository root:
+To run the same workflow directly in WSL, from the repository root:
+
+```bash
+bash scripts/run_tpcds.sh --generate-data
+```
+
+This uses the default reference of 10 GB and factors `0.1`, `0.2`, `0.4`, and `0.8`. It generates the SQL workload from templates, creates and loads the data, runs the benchmark, generates plots, and compares against the fixed baseline `20261023_164300_814393`. To skip data generation and reuse existing databases, omit the argument:
 
 ```bash
 bash scripts/run_tpcds.sh
 ```
 
-This uses the default reference of 10 GB and factors `0.1`, `0.2`, and `0.5`. It creates the SQL workload only if it is missing, generates and loads the requested factors, and runs the benchmark. Pass other relative factors as arguments:
-
-```bash
-bash scripts/run_tpcds.sh 0.1 0.2 0.5 1.0
-```
-
 Set environment variables before the command to change configuration; for example, repeat each query three times:
 
 ```bash
-REFERENCE_SCALE_GB=10 REPEATS=3 bash scripts/run_tpcds.sh 0.1 0.2 0.5
+REFERENCE_SCALE_GB=10 REPEATS=3 bash scripts/run_tpcds.sh
 ```
 
-This command requires WSL prerequisites described below, including DuckDB CLI and the Linux TPC-DS generator tools. It uses existing generated query SQL when complete; set `REGENERATE_QUERIES=1` to explicitly recreate the SQL files.
+This command requires WSL prerequisites described below, including DuckDB CLI and the Linux TPC-DS generator tools. The no-argument form requires existing databases for all four scales.
 
 The Query 4, 22, 47, and 74 templates in `Kit/DSGen-software-code-4.0.0/query_templates/` contain the project’s experimental rewrites. Query 4 pre-aggregates each sales channel by customer key and year, filters to the two target years, and joins the customer details after aggregation. Query 74 uses the cVariant join order; the query generator adds its `disabled_optimizers` setup and reset around generated Query 74 SQL. These modified templates produce a custom experimental workload, not the unmodified official TPC-DS query workload.
 

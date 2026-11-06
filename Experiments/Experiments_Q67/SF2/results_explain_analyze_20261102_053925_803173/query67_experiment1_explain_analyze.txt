@@ -1,0 +1,430 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with g8 as materialized (select i_category                   ,i_class                   ,i_brand                   ,i_product_name                   ,d_year                   ,d_qoy                   ,d_moy                   ,s_store_id                   ,sum(coalesce(ss_sales_price*ss_quantity,0)) sumsales             from store_sales                 ,date_dim                 ,store                 ,item        where  ss_sold_date_sk=d_date_sk           and ss_item_sk=i_item_sk           and ss_store_sk = s_store_sk           and d_month_seq between 1212 and 1212+11        group by i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy,s_store_id), g7 as materialized (select i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy, sum(sumsales) sumsales from g8 group by i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy), g6 as materialized (select i_category, i_class, i_brand, i_product_name, d_year, d_qoy, sum(sumsales) sumsales from g7 group by i_category, i_class, i_brand, i_product_name, d_year, d_qoy), g5 as materialized (select i_category, i_class, i_brand, i_product_name, d_year, sum(sumsales) sumsales from g6 group by i_category, i_class, i_brand, i_product_name, d_year), g4 as materialized (select i_category, i_class, i_brand, i_product_name, sum(sumsales) sumsales from g5 group by i_category, i_class, i_brand, i_product_name), g3 as materialized (select i_category, i_class, i_brand, sum(sumsales) sumsales from g4 group by i_category, i_class, i_brand), g2 as materialized (select i_category, i_class, sum(sumsales) sumsales from g3 group by i_category, i_class), g1 as materialized (select i_category, sum(sumsales) sumsales from g2 group by i_category), g0 as materialized (select sum(sumsales) sumsales from g1), rollup_results as (select i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy, s_store_id, sumsales from g8 union all select i_category, i_class, i_brand, i_product_name, d_year, d_qoy, d_moy, NULL as s_store_id, sumsales from g7 union all select i_category, i_class, i_brand, i_product_name, d_year, d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g6 union all select i_category, i_class, i_brand, i_product_name, d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g5 union all select i_category, i_class, i_brand, i_product_name, NULL as d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g4 union all select i_category, i_class, i_brand, NULL as i_product_name, NULL as d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g3 union all select i_category, i_class, NULL as i_brand, NULL as i_product_name, NULL as d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g2 union all select i_category, NULL as i_class, NULL as i_brand, NULL as i_product_name, NULL as d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g1 union all select NULL as i_category, NULL as i_class, NULL as i_brand, NULL as i_product_name, NULL as d_year, NULL as d_qoy, NULL as d_moy, NULL as s_store_id, sumsales from g0)  select  * from (select i_category             ,i_class             ,i_brand             ,i_product_name             ,d_year             ,d_qoy             ,d_moy             ,s_store_id             ,sumsales             ,rank() over (partition by i_category order by sumsales desc) rk       from (select * from rollup_results)dw1) dw2 where rk <= 100 order by i_category         ,i_class         ,i_brand         ,i_product_name         ,d_year         ,d_qoy         ,d_moy         ,s_store_id         ,sumsales         ,rk limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.732s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌─────────────┐
+│    QUERY    │
+└──────┬──────┘
+┌──────┴──────┐
+│EXPLAIN_...  │
+│    ──────   │
+│    0 rows   │
+│   (0.00s)   │
+└──────┬──────┘
+┌──────┴──────┐
+│     CTE     │
+│    ──────   │
+│  CTE Name:  │
+│      g8     │
+│             │
+│ Table Index:├────────────────────────────────────────────────────┐
+│      0      │                                                    │
+│             │                                                    │
+│    0 rows   │                                                    │
+│   (0.16s)   │                                                    │
+└──────┬──────┘                                                    │
+┌──────┴──────┐                                             ┌──────┴──────┐
+│  PROJECTION │                                             │     CTE     │
+│    ──────   │                                             │    ──────   │
+│__internal_de│                                             │  CTE Name:  │
+│compress_stri│                                             │      g7     │
+│    ng(#0)   │                                             │             │
+│__internal_de│                                             │ Table Index:│
+│compress_stri│                                             │      11     │
+│    ng(#1)   │                                             │             │
+│      #2     │                                             │             │
+│      #3     │                                             │             │
+│__internal_de│                                             │             │
+│compress_inte│                                             │             │
+│ gral_integer│                                             │             │
+│  (#4, 1900) │                                             │             ├───────┐
+│__internal_de│                                             │             │       │
+│compress_inte│                                             │             │       │
+│ gral_integer│                                             │             │       │
+│   (#5, 1)   │                                             │             │       │
+│__internal_de│                                             │             │       │
+│compress_inte│                                             │             │       │
+│ gral_integer│                                             │             │       │
+│   (#6, 1)   │                                             │             │       │
+│      #7     │                                             │             │       │
+│      #8     │                                             │             │       │
+│             │                                             │             │       │
+│ 771,092 rows│                                             │    0 rows   │       │
+│   (0.05s)   │                                             │   (0.03s)   │       │
+└──────┬──────┘                                             └──────┬──────┘       │
+┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐
+│HASH_GROUP_BY│                                             │HASH_GROUP_BY││     CTE     │
+│    ──────   │                                             │    ──────   ││    ──────   │
+│   Groups:   │                                             │   Groups:   ││  CTE Name:  │
+│      #0     │                                             │      #0     ││      g6     │
+│      #1     │                                             │      #1     ││             │
+│      #2     │                                             │      #2     ││ Table Index:│
+│      #3     │                                             │      #3     ││      19     │
+│      #4     │                                             │      #4     ││             │
+│      #5     │                                             │      #5     ││             ├───────┐
+│      #6     │                                             │      #6     ││             │       │
+│      #7     │                                             │             ││             │       │
+│             │                                             │ Aggregates: ││             │       │
+│ Aggregates: │                                             │   sum(#7)   ││             │       │
+│   sum(#8)   │                                             │             ││             │       │
+│             │                                             │             ││             │       │
+│ 771,092 rows│                                             │ 161,053 rows││    0 rows   │       │
+│   (1.80s)   │                                             │   (0.79s)   ││   (0.01s)   │       │
+└──────┬──────┘                                             └──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  PROJECTION │                                             │  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   │                                             │    ──────   ││    ──────   ││    ──────   │
+│  i_category │                                             │  i_category ││   Groups:   ││  CTE Name:  │
+│   i_class   │                                             │   i_class   ││      #0     ││      g5     │
+│   i_brand   │                                             │   i_brand   ││      #1     ││             │
+│i_product_nam│                                             │i_product_nam││      #2     ││ Table Index:│
+│      e      │                                             │      e      ││      #3     ││      27     │
+│    d_year   │                                             │    d_year   ││      #4     ││             │
+│    d_qoy    │                                             │    d_qoy    ││      #5     ││             │
+│    d_moy    │                                             │    d_moy    ││             ││             │
+│  s_store_id │                                             │   sumsales  ││ Aggregates: ││             │
+│  COALESCE(  │                                             │             ││   sum(#6)   ││             ├───────┐
+│(CAST(ss_sale│                                             │             ││             ││             │       │
+│  s_price AS │                                             │             ││             ││             │       │
+│  DECIMAL(17 │                                             │             ││             ││             │       │
+│ ,2)) * CAST │                                             │             ││             ││             │       │
+│ (ss_quantity│                                             │             ││             ││             │       │
+│  AS DECIMAL │                                             │             ││             ││             │       │
+│ (17,0))), 0 │                                             │             ││             ││             │       │
+│     .00)    │                                             │             ││             ││             │       │
+│             │                                             │             ││             ││             │       │
+│1,067,88...  │                                             │ 771,092 rows││ 51,992 rows ││    0 rows   │       │
+│   (0.11s)   │                                             │   (0.00s)   ││   (0.15s)   ││   (0.00s)   │       │
+└──────┬──────┘                                             └──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐                                             ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  PROJECTION │                                             │   CTE_SCAN  ││  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   │                                             │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+│      #0     │                                             │  CTE Index: ││  i_category ││   Groups:   ││  CTE Name:  │
+│      #1     │                                             │      0      ││   i_class   ││      #0     ││      g4     │
+│__internal_co│                                             │             ││   i_brand   ││      #1     ││             │
+│mpress_integr│                                             │             ││i_product_nam││      #2     ││ Table Index:│
+│ al_utinyint(│                                             │             ││      e      ││      #3     ││      35     │
+│  #2, 1900)  │                                             │             ││    d_year   ││      #4     ││             │
+│__internal_co│                                             │             ││    d_qoy    ││             ││             │
+│mpress_integr│                                             │             ││   sumsales  ││ Aggregates: ││             │
+│ al_utinyint(│                                             │             ││             ││   sum(#5)   ││             │
+│    #3, 1)   │                                             │             ││             ││             ││             │
+│__internal_co│                                             │             ││             ││             ││             │
+│mpress_integr│                                             │             ││             ││             ││             │
+│ al_utinyint(│                                             │             ││             ││             ││             ├───────┐
+│    #4, 1)   │                                             │             ││             ││             ││             │       │
+│__internal_co│                                             │             ││             ││             ││             │       │
+│mpress_string│                                             │             ││             ││             ││             │       │
+│_uhugeint(#5)│                                             │             ││             ││             ││             │       │
+│__internal_co│                                             │             ││             ││             ││             │       │
+│mpress_string│                                             │             ││             ││             ││             │       │
+│_uhugeint(#6)│                                             │             ││             ││             ││             │       │
+│      #7     │                                             │             ││             ││             ││             │       │
+│      #8     │                                             │             ││             ││             ││             │       │
+│      #9     │                                             │             ││             ││             ││             │       │
+│             │                                             │             ││             ││             ││             │       │
+│1,067,88...  │                                             │ 771,092 rows││ 161,053 rows││ 12,998 rows ││    0 rows   │       │
+│   (0.17s)   │                                             │   (0.01s)   ││   (0.00s)   ││   (0.05s)   ││   (0.00s)   │       │
+└──────┬──────┘                                             └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  HASH_JOIN  │                                                            │   CTE_SCAN  ││  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   │                                                            │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+│  Join Type: │                                                            │  CTE Index: ││  i_category ││   Groups:   ││  CTE Name:  │
+│    INNER    │                                                            │      11     ││   i_class   ││      #0     ││      g3     │
+│             │                                                            │             ││   i_brand   ││      #1     ││             │
+│ Conditions: │                                                            │             ││i_product_nam││      #2     ││ Table Index:│
+│ ss_store_sk ├─────────────────────────────────────┐                      │             ││      e      ││      #3     ││      43     ├───────┐
+│ = s_store_sk│                                     │                      │             ││    d_year   ││             ││             │       │
+│             │                                     │                      │             ││   sumsales  ││ Aggregates: ││             │       │
+│             │                                     │                      │             ││             ││   sum(#4)   ││             │       │
+│             │                                     │                      │             ││             ││             ││             │       │
+│1,067,88...  │                                     │                      │ 161,053 rows││ 51,992 rows ││ 12,998 rows ││    0 rows   │       │
+│   (0.02s)   │                                     │                      │   (0.00s)   ││   (0.00s)   ││   (0.01s)   ││   (0.00s)   │       │
+└──────┬──────┘                                     │                      └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐                              ┌──────┴──────┐                              ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  HASH_JOIN  │                              │  TABLE_SCAN │                              │   CTE_SCAN  ││  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   │                              │    ──────   │                              │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+│  Join Type: │                              │    Table:   │                              │  CTE Index: ││  i_category ││   Groups:   ││  CTE Name:  │
+│    INNER    │                              │    store    │                              │      19     ││   i_class   ││      #0     ││      g2     │
+│             │                              │             │                              │             ││   i_brand   ││      #1     ││             │
+│ Conditions: │                              │    Type:    │                              │             ││i_product_nam││      #2     ││ Table Index:│
+│ ss_item_sk =│                              │  Sequential │                              │             ││      e      ││             ││      51     │
+│   i_item_sk ├──────────────────────┐       │     Scan    │                              │             ││   sumsales  ││ Aggregates: ││             ├───────┐
+│             │                      │       │             │                              │             ││             ││   sum(#3)   ││             │       │
+│             │                      │       │ Projections:│                              │             ││             ││             ││             │       │
+│             │                      │       │  s_store_sk │                              │             ││             ││             ││             │       │
+│             │                      │       │  s_store_id │                              │             ││             ││             ││             │       │
+│             │                      │       │             │                              │             ││             ││             ││             │       │
+│1,067,88...  │                      │       │   22 rows   │                              │ 51,992 rows ││ 12,998 rows ││   655 rows  ││    0 rows   │       │
+│   (0.04s)   │                      │       │   (0.00s)   │                              │   (0.00s)   ││   (0.00s)   ││   (0.00s)   ││   (0.00s)   │       │
+└──────┬──────┘                      │       └─────────────┘                              └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐               ┌──────┴──────┐                                                            ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  HASH_JOIN  │               │  TABLE_SCAN │                                                            │   CTE_SCAN  ││  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   │               │    ──────   │                                                            │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+│  Join Type: │               │    Table:   │                                                            │  CTE Index: ││  i_category ││   Groups:   ││  CTE Name:  │
+│    INNER    │               │     item    │                                                            │      27     ││   i_class   ││      #0     ││      g1     │
+│             │               │             │                                                            │             ││   i_brand   ││      #1     ││             │
+│ Conditions: │               │    Type:    │                                                            │             ││   sumsales  ││             ││ Table Index:│
+│ss_sold_date_│               │  Sequential │                                                            │             ││             ││ Aggregates: ││      59     │
+│sk = d_date_s│               │     Scan    │                                                            │             ││             ││   sum(#2)   ││             │
+│      k      │               │             │                                                            │             ││             ││             ││             │
+│             ├───────┐       │ Projections:│                                                            │             ││             ││             ││             ├───────┐
+│             │       │       │  i_item_sk  │                                                            │             ││             ││             ││             │       │
+│             │       │       │  i_category │                                                            │             ││             ││             ││             │       │
+│             │       │       │   i_class   │                                                            │             ││             ││             ││             │       │
+│             │       │       │   i_brand   │                                                            │             ││             ││             ││             │       │
+│             │       │       │i_product_nam│                                                            │             ││             ││             ││             │       │
+│             │       │       │      e      │                                                            │             ││             ││             ││             │       │
+│             │       │       │             │                                                            │             ││             ││             ││             │       │
+│1,067,88...  │       │       │ 26,000 rows │                                                            │ 12,998 rows ││ 12,998 rows ││   126 rows  ││    0 rows   │       │
+│   (0.06s)   │       │       │   (0.00s)   │                                                            │   (0.00s)   ││   (0.00s)   ││   (0.00s)   ││   (0.00s)   │       │
+└──────┬──────┘       │       └─────────────┘                                                            └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+┌──────┴──────┐┌──────┴──────┐                                                                                          ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+│  TABLE_SCAN ││    FILTER   │                                                                                          │   CTE_SCAN  ││  PROJECTION ││HASH_GROUP_BY││     CTE     │
+│    ──────   ││    ──────   │                                                                                          │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+│    Table:   ││  (d_date_sk │                                                                                          │  CTE Index: ││  i_category ││   Groups:   ││  CTE Name:  │
+│ store_sales ││    BETWEEN  │                                                                                          │      35     ││   i_class   ││      #0     ││      g0     │
+│             ││  2450816 AND│                                                                                          │             ││   sumsales  ││             ││             │
+│    Type:    ││   2452642)  │                                                                                          │             ││             ││ Aggregates: ││ Table Index:│
+│  Sequential ││             │                                                                                          │             ││             ││   sum(#1)   ││      67     │
+│     Scan    ││             │                                                                                          │             ││             ││             ││             │
+│             ││             │                                                                                          │             ││             ││             ││             │
+│ Projections:││             │                                                                                          │             ││             ││             ││             │
+│ss_sold_date_││             │                                                                                          │             ││             ││             ││             ├───────┐
+│      sk     ││             │                                                                                          │             ││             ││             ││             │       │
+│  ss_item_sk ││             │                                                                                          │             ││             ││             ││             │       │
+│ ss_store_sk ││             │                                                                                          │             ││             ││             ││             │       │
+│ss_sales_pric││             │                                                                                          │             ││             ││             ││             │       │
+│      e      ││             │                                                                                          │             ││             ││             ││             │       │
+│ ss_quantity ││             │                                                                                          │             ││             ││             ││             │       │
+│             ││             │                                                                                          │             ││             ││             ││             │       │
+│1,067,88...  ││   365 rows  │                                                                                          │ 12,998 rows ││   655 rows  ││   11 rows   ││    0 rows   │       │
+│   (0.22s)   ││   (0.00s)   │                                                                                          │   (0.00s)   ││   (0.00s)   ││   (0.00s)   ││   (0.00s)   │       │
+└─────────────┘└──────┬──────┘                                                                                          └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘       │
+               ┌──────┴──────┐                                                                                                         ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+               │  TABLE_SCAN │                                                                                                         │   CTE_SCAN  ││  PROJECTION ││UNGROUPE...  ││    TOP_N    │
+               │    ──────   │                                                                                                         │    ──────   ││    ──────   ││    ──────   ││    ──────   │
+               │    Table:   │                                                                                                         │  CTE Index: ││  i_category ││ Aggregates: ││     Top:    │
+               │   date_dim  │                                                                                                         │      43     ││   sumsales  ││   sum(#0)   ││     100     │
+               │             │                                                                                                         │             ││             ││             ││             │
+               │    Type:    │                                                                                                         │             ││             ││             ││  Order By:  │
+               │  Sequential │                                                                                                         │             ││             ││             ││dw2.i_categor│
+               │     Scan    │                                                                                                         │             ││             ││             ││    y ASC    │
+               │             │                                                                                                         │             ││             ││             ││ dw2.i_class │
+               │ Projections:│                                                                                                         │             ││             ││             ││      ASC    │
+               │  d_date_sk  │                                                                                                         │             ││             ││             ││ dw2.i_brand │
+               │    d_year   │                                                                                                         │             ││             ││             ││      ASC    │
+               │    d_qoy    │                                                                                                         │             ││             ││             ││dw2.i_product│
+               │    d_moy    │                                                                                                         │             ││             ││             ││  _name ASC  │
+               │             │                                                                                                         │             ││             ││             ││  dw2.d_year │
+               │   Filters:  │                                                                                                         │             ││             ││             ││      ASC    │
+               │ d_month_seq>│                                                                                                         │             ││             ││             ││dw2.d_qoy ASC│
+               │  =1212 AND  │                                                                                                         │             ││             ││             ││dw2.d_moy ASC│
+               │  d_month_seq│                                                                                                         │             ││             ││             ││dw2.s_store_i│
+               │    <=1223   │                                                                                                         │             ││             ││             ││    d ASC    │
+               │             │                                                                                                         │             ││             ││             ││ dw2.sumsales│
+               │             │                                                                                                         │             ││             ││             ││      ASC    │
+               │             │                                                                                                         │             ││             ││             ││  dw2.rk ASC │
+               │             │                                                                                                         │             ││             ││             ││             │
+               │   365 rows  │                                                                                                         │   655 rows  ││   126 rows  ││    1 row    ││   100 rows  │
+               │   (0.00s)   │                                                                                                         │   (0.00s)   ││   (0.00s)   ││   (0.00s)   ││   (0.00s)   │
+               └─────────────┘                                                                                                         └─────────────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘
+                                                                                                                                                      ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+                                                                                                                                                      │   CTE_SCAN  ││  PROJECTION ││    FILTER   │
+                                                                                                                                                      │    ──────   ││    ──────   ││    ──────   │
+                                                                                                                                                      │  CTE Index: ││   sumsales  ││ (rk <= 100) │
+                                                                                                                                                      │      51     ││             ││             │
+                                                                                                                                                      │             ││             ││             │
+                                                                                                                                                      │   126 rows  ││   11 rows   ││  1,104 rows │
+                                                                                                                                                      │   (0.00s)   ││   (0.00s)   ││   (0.01s)   │
+                                                                                                                                                      └─────────────┘└──────┬──────┘└──────┬──────┘
+                                                                                                                                                                     ┌──────┴──────┐┌──────┴──────┐
+                                                                                                                                                                     │   CTE_SCAN  ││  PROJECTION │
+                                                                                                                                                                     │    ──────   ││    ──────   │
+                                                                                                                                                                     │  CTE Index: ││      #0     │
+                                                                                                                                                                     │      59     ││      #1     │
+                                                                                                                                                                     │             ││      #2     │
+                                                                                                                                                                     │             ││      #3     │
+                                                                                                                                                                     │             ││      #4     │
+                                                                                                                                                                     │             ││      #5     │
+                                                                                                                                                                     │             ││      #6     │
+                                                                                                                                                                     │             ││      #7     │
+                                                                                                                                                                     │             ││      #8     │
+                                                                                                                                                                     │             ││      #9     │
+                                                                                                                                                                     │             ││             │
+                                                                                                                                                                     │   11 rows   ││1,010,92...  │
+                                                                                                                                                                     │   (0.00s)   ││   (0.00s)   │
+                                                                                                                                                                     └─────────────┘└──────┬──────┘
+                                                                                                                                                                                    ┌──────┴──────┐
+                                                                                                                                                                                    │    WINDOW   │
+                                                                                                                                                                                    │    ──────   │
+                                                                                                                                                                                    │ Projections:│
+                                                                                                                                                                                    │ RANK() OVER │
+                                                                                                                                                                                    │  (PARTITION │
+                                                                                                                                                                                    │ BY i_categor│
+                                                                                                                                                                                    │  y ORDER BY │
+                                                                                                                                                                                    │   sumsales  │
+                                                                                                                                                                                    │  DESC NULLS │
+                                                                                                                                                                                    │     LAST)   │
+                                                                                                                                                                                    │             │
+                                                                                                                                                                                    │1,010,92...  │
+                                                                                                                                                                                    │   (2.50s)   │
+                                                                                                                                                                                    └──────┬──────┘
+                                                                                                                                                                                    ┌──────┴──────┐
+                                                                                                                                                                                    │    UNION    │
+                                                                                                                                                                                    │    ──────   │
+                                                                                                                                                                                    │    0 rows   ├─────────────────────────────────────────────
+                                                                                                                                                                                    │   (0.00s)   │                                             
+                                                                                                                                                                                    └──────┬──────┘                                             
+                                                                                                                                                                                    ┌──────┴──────┐                                             
+                                                                                                                                                                                    │    UNION    │                                             
+                                                                                                                                                                                    │    ──────   │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             ├─────────────────────────────────────────────
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │    0 rows   │                                             
+                                                                                                                                                                                    │   (0.00s)   │                                             
+                                                                                                                                                                                    └──────┬──────┘                                             
+                                                                                                                                                                                    ┌──────┴──────┐                                             
+                                                                                                                                                                                    │    UNION    │                                             
+                                                                                                                                                                                    │    ──────   │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             ├─────────────────────────────────────────────
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │    0 rows   │                                             
+                                                                                                                                                                                    │   (0.00s)   │                                             
+                                                                                                                                                                                    └──────┬──────┘                                             
+                                                                                                                                                                                    ┌──────┴──────┐                                             
+                                                                                                                                                                                    │    UNION    │                                             
+                                                                                                                                                                                    │    ──────   │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             ├─────────────────────────────────────────────
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │    0 rows   │                                             
+                                                                                                                                                                                    │   (0.00s)   │                                             
+                                                                                                                                                                                    └──────┬──────┘                                             
+                                                                                                                                                                                    ┌──────┴──────┐                                             
+                                                                                                                                                                                    │    UNION    │                                             
+                                                                                                                                                                                    │    ──────   │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             ├─────────────────────────────────────────────
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │    0 rows   │                                             
+                                                                                                                                                                                    │   (0.00s)   │                                             
+                                                                                                                                                                                    └──────┬──────┘                                             
+                                                                                                                                                                                    ┌──────┴──────┐                                             
+                                                                                                                                                                                    │    UNION    │                                             
+                                                                                                                                                                                    │    ──────   │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             │                                             
+                                                                                                                                                                                    │             ├─────────────────────────────────────┐       
+                                                                                                                                                                                    │             │                                     │       
+                                                                                                                                                                                    │             │                                     │       
+                                                                                                                                                                                    │             │                                     │       
+                                                                                                                                                                                    │             │                                     │       
+                                                                                                                                                                                    │             │                                     │       
+                                                                                                                                                                                    │    0 rows   │                                     │       
+                                                                                                                                                                                    │   (0.00s)   │                                     │       
+                                                                                                                                                                                    └──────┬──────┘                                     │       
+                                                                                                                                                                                    ┌──────┴──────┐                              ┌──────┴──────┐
+                                                                                                                                                                                    │    UNION    │                              │  PROJECTION │
+                                                                                                                                                                                    │    ──────   │                              │    ──────   │
+                                                                                                                                                                                    │             │                              │  i_category │
+                                                                                                                                                                                    │             │                              │   i_class   │
+                                                                                                                                                                                    │             │                              │   i_brand   │
+                                                                                                                                                                                    │             │                              │i_product_nam│
+                                                                                                                                                                                    │             │                              │      e      │
+                                                                                                                                                                                    │             ├──────────────────────┐       │    d_year   │
+                                                                                                                                                                                    │             │                      │       │    d_qoy    │
+                                                                                                                                                                                    │             │                      │       │    d_moy    │
+                                                                                                                                                                                    │             │                      │       │  s_store_id │
+                                                                                                                                                                                    │             │                      │       │   sumsales  │
+                                                                                                                                                                                    │             │                      │       │             │
+                                                                                                                                                                                    │    0 rows   │                      │       │ 12,998 rows │
+                                                                                                                                                                                    │   (0.00s)   │                      │       │   (0.00s)   │
+                                                                                                                                                                                    └──────┬──────┘                      │       └──────┬──────┘
+                                                                                                                                                                                    ┌──────┴──────┐               ┌──────┴──────┐┌──────┴──────┐
+                                                                                                                                                                                    │    UNION    │               │  PROJECTION ││   CTE_SCAN  │
+                                                                                                                                                                                    │    ──────   │               │    ──────   ││    ──────   │
+                                                                                                                                                                                    │             │               │  i_category ││  CTE Index: │
+                                                                                                                                                                                    │             │               │   i_class   ││      27     │
+                                                                                                                                                                                    │             │               │   i_brand   ││             │
+                                                                                                                                                                                    │             │               │i_product_nam││             │
+                                                                                                                                                                                    │             │               │      e      ││             │
+                                                                                                                                                                                    │             ├───────┐       │    d_year   ││             │
+                                                                                                                                                                                    │             │       │       │    d_qoy    ││             │
+                                                                                                                                                                                    │             │       │       │    d_moy    ││             │
+                                                                                                                                                                                    │             │       │       │  s_store_id ││             │
+                                                                                                                                                                                    │             │       │       │   sumsales  ││             │
+                                                                                                                                                                                    │             │       │       │             ││             │
+                                                                                                                                                                                    │    0 rows   │       │       │ 51,992 rows ││ 12,998 rows │
+                                                                                                                                                                                    │   (0.00s)   │       │       │   (0.00s)   ││   (0.00s)   │
+                                                                                                                                                                                    └──────┬──────┘       │       └──────┬──────┘└─────────────┘
+                                                                                                                                                                                    ┌──────┴──────┐┌──────┴──────┐┌──────┴──────┐
+                                                                                                                                                                                    │   CTE_SCAN  ││  PROJECTION ││   CTE_SCAN  │
+                                                                                                                                                                                    │    ──────   ││    ──────   ││    ──────   │
+                                                                                                                                                                                    │  CTE Index: ││  i_category ││  CTE Index: │
+                                                                                                                                                                                    │      0      ││   i_class   ││      19     │
+                                                                                                                                                                                    │             ││   i_brand   ││             │
+                                                                                                                                                                                    │             ││i_product_nam││             │
+                                                                                                                                                                                    │             ││      e      ││             │
+                                                                                                                                                                                    │             ││    d_year   ││             │
+                                                                                                                                                                                    │             ││    d_qoy    ││             │
+                                                                                                                                                                                    │             ││    d_moy    ││             │
+                                                                                                                                                                                    │             ││  s_store_id ││             │
+                                                                                                                                                                                    │             ││   sumsales  ││             │
+                                                                                                                                                                                    │             ││             ││             │
+                                                                                                                                                                                    │ 771,092 rows││ 161,053 rows││ 51,992 rows │
+                                                                                                                                                                                    │   (0.01s)   ││   (0.00s)   ││   (0.00s)   │
+                                                                                                                                                                                    └─────────────┘└──────┬──────┘└─────────────┘
+                                                                                                                                                                                                   ┌──────┴──────┐
+                                                                                                                                                                                                   │   CTE_SCAN  │
+                                                                                                                                                                                                   │    ──────   │
+                                                                                                                                                                                                   │  CTE Index: │
+                                                                                                                                                                                                   │      11     │
+                                                                                                                                                                                                   │             │
+                                                                                                                                                                                                   │ 161,053 rows│
+                                                                                                                                                                                                   │   (0.00s)   │
+                                                                                                                                                                                                   └─────────────┘

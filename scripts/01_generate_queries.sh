@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# Example: bash scripts/01_generate_queries.sh 1 2 4 8
 # ============================================================
 # Generate one SQL file per TPC-DS query template and scale
 # using the custom DuckDB dialect.
@@ -45,6 +46,23 @@ fi
     printf 'ERROR: Missing query templates directory: %s\n' "$TEMPLATES" >&2
     exit 1
 }
+
+NORMALIZED_TEMPLATES="$(mktemp -d "${TMPDIR:-/tmp}/tpcds-query-templates.XXXXXX")"
+cleanup() {
+    case "$NORMALIZED_TEMPLATES" in
+        "${TMPDIR:-/tmp}"/tpcds-query-templates.*)
+            rm -rf -- "$NORMALIZED_TEMPLATES"
+            ;;
+        *)
+            printf 'ERROR: Refusing to remove unexpected temporary path: %s\n' \
+                "$NORMALIZED_TEMPLATES" >&2
+            ;;
+    esac
+}
+trap cleanup EXIT
+cp -a "$TEMPLATES/." "$NORMALIZED_TEMPLATES/"
+find "$NORMALIZED_TEMPLATES" -type f -name '*.tpl' \
+    -exec sed -i 's/\r$//' {} +
 
 if [[ "$DSQGEN_BIN" != /* ]]; then
     DSQGEN_BIN="$PWD/$DSQGEN_BIN"
@@ -99,7 +117,12 @@ for scale in "${SCALES[@]}"; do
             dsqgen_args+=(-RNGSEED "$RNGSEED")
         fi
         if (
-            "$DSQGEN_BIN" "${dsqgen_args[@]}"
+            "$DSQGEN_BIN" \
+                -DIRECTORY "$NORMALIZED_TEMPLATES" \
+                -TEMPLATE "$template" \
+                -DIALECT duckdb \
+                -SCALE "$scale" \
+                -FILTER Y
         ) > "$sql_file" 2> "$error_file" && [[ -s "$sql_file" ]]; then
             if [[ "$base" == "query74" ]]; then
                 wrapped_file="$(mktemp "$OUTPUT/.query74.sql.XXXXXX")"
@@ -118,7 +141,7 @@ for scale in "${SCALES[@]}"; do
             printf '%s,%s,%s,OK,\n' "$scale" "$number" "$template" >> "$REPORT"
             rm -f -- "$error_file"
         else
-            error="$(tr '\n' ' ' < "$error_file" | sed 's/"/""/g')"
+            error="$({ cat "$sql_file"; cat "$error_file"; } | tr '\n' ' ' | sed 's/"/""/g')"
             printf '%s,%s,%s,FAILED,%s\n' \
                 "$scale" "$number" "$template" "$(csv_quote "$error")" >> "$REPORT"
             rm -f -- "$sql_file"

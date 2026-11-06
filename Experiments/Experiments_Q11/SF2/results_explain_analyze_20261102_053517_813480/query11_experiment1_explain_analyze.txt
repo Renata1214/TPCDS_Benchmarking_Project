@@ -1,0 +1,433 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with year_total as (  select c_customer_id customer_id        ,c_first_name customer_first_name        ,c_last_name customer_last_name        ,c_preferred_cust_flag customer_preferred_cust_flag        ,c_birth_country customer_birth_country        ,c_login customer_login        ,c_email_address customer_email_address        ,d_year dyear        ,sum(net_amount) year_total        ,'s' sale_type  from customer      ,(select ss_customer_sk, d_year,        sum(ss_ext_list_price-ss_ext_discount_amt) net_amount        from store_sales join date_dim on ss_sold_date_sk=d_date_sk        where d_year in (2001,2001+1)        group by ss_customer_sk,d_year) store_sales  where c_customer_sk = ss_customer_sk  group by c_customer_id          ,c_first_name          ,c_last_name          ,c_preferred_cust_flag           ,c_birth_country          ,c_login          ,c_email_address          ,d_year   union all  select c_customer_id customer_id        ,c_first_name customer_first_name        ,c_last_name customer_last_name        ,c_preferred_cust_flag customer_preferred_cust_flag        ,c_birth_country customer_birth_country        ,c_login customer_login        ,c_email_address customer_email_address        ,d_year dyear        ,sum(net_amount) year_total        ,'w' sale_type  from customer      ,(select ws_bill_customer_sk, d_year,        sum(ws_ext_list_price-ws_ext_discount_amt) net_amount        from web_sales join date_dim on ws_sold_date_sk=d_date_sk        where d_year in (2001,2001+1)        group by ws_bill_customer_sk,d_year) web_sales  where c_customer_sk = ws_bill_customer_sk  group by c_customer_id          ,c_first_name          ,c_last_name          ,c_preferred_cust_flag           ,c_birth_country          ,c_login          ,c_email_address          ,d_year          )   select                     t_s_secyear.customer_id                  ,t_s_secyear.customer_first_name                  ,t_s_secyear.customer_last_name                  ,t_s_secyear.customer_email_address  from year_total t_s_firstyear      ,year_total t_s_secyear      ,year_total t_w_firstyear      ,year_total t_w_secyear  where t_s_secyear.customer_id = t_s_firstyear.customer_id          and t_s_firstyear.customer_id = t_w_secyear.customer_id          and t_s_firstyear.customer_id = t_w_firstyear.customer_id          and t_s_firstyear.sale_type = 's'          and t_w_firstyear.sale_type = 'w'          and t_s_secyear.sale_type = 's'          and t_w_secyear.sale_type = 'w'          and t_s_firstyear.dyear = 2001          and t_s_secyear.dyear = 2001+1          and t_w_firstyear.dyear = 2001          and t_w_secyear.dyear = 2001+1          and t_s_firstyear.year_total > 0          and t_w_firstyear.year_total > 0          and case when t_w_firstyear.year_total > 0 then t_w_secyear.year_total / t_w_firstyear.year_total else 0.0 end              > case when t_s_firstyear.year_total > 0 then t_s_secyear.year_total / t_s_firstyear.year_total else 0.0 end  order by t_s_secyear.customer_id          ,t_s_secyear.customer_first_name          ,t_s_secyear.customer_last_name          ,t_s_secyear.customer_email_address limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.325s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌─────────────────┐
+│      QUERY      │
+└────────┬────────┘
+┌────────┴────────┐
+│ EXPLAIN_ANALYZE │
+│    ──────────   │
+│      0 rows     │
+│     (0.00s)     │
+└────────┬────────┘
+┌────────┴────────┐
+│      TOP_N      │
+│    ──────────   │
+│     Top: 100    │
+│                 │
+│    Order By:    │
+│   t_s_secyear   │
+│ .customer_id ASC│
+│   t_s_secyear   │
+│.customer_first_n│
+│     ame ASC     │
+│   t_s_secyear   │
+│.customer_last_na│
+│      me ASC     │
+│   t_s_secyear   │
+│.customer_email_a│
+│    ddress ASC   │
+│                 │
+│     100 rows    │
+│     (0.00s)     │
+└────────┬────────┘
+┌────────┴────────┐
+│    PROJECTION   │
+│    ──────────   │
+│   customer_id   │
+│customer_first_na│
+│        me       │
+│customer_last_nam│
+│        e        │
+│customer_email_ad│
+│      dress      │
+│                 │
+│     382 rows    │
+│     (0.00s)     │
+└────────┬────────┘
+┌────────┴────────┐
+│    PROJECTION   │
+│    ──────────   │
+│        #0       │
+│        #1       │
+│        #2       │
+│        #5       │
+│                 │
+│     382 rows    │
+│     (0.00s)     │
+└────────┬────────┘
+┌────────┴────────┐
+│      FILTER     │
+│    ──────────   │
+│  (CASE  WHEN (  │
+│ (year_total > 0 │
+│   .00)) THEN (  │
+│ (CAST(year_total│
+│   AS DOUBLE) /  │
+│  CAST(year_total│
+│   AS DOUBLE)))  │
+│  ELSE 0.0 END > │
+│   CASE  WHEN (  │
+│ (year_total > 0 │
+│   .00)) THEN (  │
+│ (CAST(year_total│
+│   AS DOUBLE) /  │
+│  CAST(year_total│
+│   AS DOUBLE)))  │
+│   ELSE 0.0 END) │
+│                 │
+│     382 rows    │
+│     (0.00s)     │
+└────────┬────────┘
+┌────────┴────────┐
+│    HASH_JOIN    │
+│    ──────────   │
+│    Join Type:   │
+│      INNER      │
+│                 │
+│   Conditions:   ├───────────────────────────────────────────────┐
+│  customer_id =  │                                               │
+│    customer_id  │                                               │
+│                 │                                               │
+│     763 rows    │                                               │
+│     (0.01s)     │                                               │
+└────────┬────────┘                                               │
+┌────────┴────────┐                                      ┌────────┴────────┐
+│    PROJECTION   │                                      │    HASH_JOIN    │
+│    ──────────   │                                      │    ──────────   │
+│   customer_id   │                                      │    Join Type:   │
+│customer_first_na│                                      │      INNER      │
+│        me       │                                      │                 │
+│customer_last_nam│                                      │   Conditions:   │
+│        e        │                                      │  customer_id =  ├───────────────────────────────────────────────┐
+│customer_email_ad│                                      │    customer_id  │                                               │
+│      dress      │                                      │                 │                                               │
+│    year_total   │                                      │                 │                                               │
+│                 │                                      │                 │                                               │
+│   69,648 rows   │                                      │    1,597 rows   │                                               │
+│     (0.00s)     │                                      │     (0.01s)     │                                               │
+└────────┬────────┘                                      └────────┬────────┘                                               │
+┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│    PROJECTION   │                                      │    PROJECTION   │                                      │    HASH_JOIN    │
+│    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│        #0       │                                      │   customer_id   │                                      │    Join Type:   │
+│__internal_decomp│                                      │    year_total   │                                      │      INNER      │
+│ ress_string(#1) │                                      │                 │                                      │                 │
+│__internal_decomp│                                      │                 │                                      │   Conditions:   │
+│ ress_string(#2) │                                      │                 │                                      │  customer_id =  │
+│__internal_decomp│                                      │                 │                                      │    customer_id  │
+│ ress_string(#3) │                                      │                 │                                      │                 │
+│        #4       │                                      │                 │                                      │                 │
+│__internal_decomp│                                      │                 │                                      │                 ├───────────────────────────────────────────────┐
+│ ress_string(#5) │                                      │                 │                                      │                 │                                               │
+│        #6       │                                      │                 │                                      │                 │                                               │
+│__internal_decomp│                                      │                 │                                      │                 │                                               │
+│ress_integral_int│                                      │                 │                                      │                 │                                               │
+│  eger(#7, 2001) │                                      │                 │                                      │                 │                                               │
+│        #8       │                                      │                 │                                      │                 │                                               │
+│                 │                                      │                 │                                      │                 │                                               │
+│   69,648 rows   │                                      │   22,090 rows   │                                      │   10,841 rows   │                                               │
+│     (0.00s)     │                                      │     (0.00s)     │                                      │     (0.02s)     │                                               │
+└────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘                                               │
+┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│  HASH_GROUP_BY  │                                      │    PROJECTION   │                                      │    PROJECTION   │                                      │    PROJECTION   │
+│    ──────────   │                                      │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│     Groups:     │                                      │        #0       │                                      │        #0       │                                      │        #0       │
+│        #0       │                                      │__internal_decomp│                                      │        #8       │                                      │        #8       │
+│        #1       │                                      │ ress_string(#1) │                                      │                 │                                      │                 │
+│        #2       │                                      │__internal_decomp│                                      │                 │                                      │                 │
+│        #3       │                                      │ ress_string(#2) │                                      │                 │                                      │                 │
+│        #4       │                                      │__internal_decomp│                                      │                 │                                      │                 │
+│        #5       │                                      │ ress_string(#3) │                                      │                 │                                      │                 │
+│        #6       │                                      │        #4       │                                      │                 │                                      │                 │
+│        #7       │                                      │__internal_decomp│                                      │                 │                                      │                 │
+│                 │                                      │ ress_string(#5) │                                      │                 │                                      │                 │
+│   Aggregates:   │                                      │        #6       │                                      │                 │                                      │                 │
+│     sum(#8)     │                                      │__internal_decomp│                                      │                 │                                      │                 │
+│                 │                                      │ress_integral_int│                                      │                 │                                      │                 │
+│                 │                                      │  eger(#7, 2001) │                                      │                 │                                      │                 │
+│                 │                                      │        #8       │                                      │                 │                                      │                 │
+│                 │                                      │                 │                                      │                 │                                      │                 │
+│   69,648 rows   │                                      │   22,090 rows   │                                      │   69,732 rows   │                                      │   22,299 rows   │
+│     (0.08s)     │                                      │     (0.00s)     │                                      │     (0.00s)     │                                      │     (0.00s)     │
+└────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘
+┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│    PROJECTION   │                                      │  HASH_GROUP_BY  │                                      │      FILTER     │                                      │      FILTER     │
+│    ──────────   │                                      │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│  c_customer_id  │                                      │     Groups:     │                                      │ (year_total > 0 │                                      │ (year_total > 0 │
+│   c_first_name  │                                      │        #0       │                                      │       .00)      │                                      │       .00)      │
+│   c_last_name   │                                      │        #1       │                                      │                 │                                      │                 │
+│c_preferred_cust_│                                      │        #2       │                                      │                 │                                      │                 │
+│       flag      │                                      │        #3       │                                      │                 │                                      │                 │
+│ c_birth_country │                                      │        #4       │                                      │                 │                                      │                 │
+│     c_login     │                                      │        #5       │                                      │                 │                                      │                 │
+│ c_email_address │                                      │        #6       │                                      │                 │                                      │                 │
+│      d_year     │                                      │        #7       │                                      │                 │                                      │                 │
+│    net_amount   │                                      │                 │                                      │                 │                                      │                 │
+│                 │                                      │   Aggregates:   │                                      │                 │                                      │                 │
+│                 │                                      │     sum(#8)     │                                      │                 │                                      │                 │
+│                 │                                      │                 │                                      │                 │                                      │                 │
+│   69,648 rows   │                                      │   22,090 rows   │                                      │   69,732 rows   │                                      │   22,299 rows   │
+│     (0.00s)     │                                      │     (0.04s)     │                                      │     (0.00s)     │                                      │     (0.00s)     │
+└────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘
+┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│    PROJECTION   │                                      │    PROJECTION   │                                      │    PROJECTION   │                                      │    PROJECTION   │
+│    ──────────   │                                      │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│        #0       │                                      │  c_customer_id  │                                      │        #0       │                                      │        #0       │
+│__internal_compre│                                      │   c_first_name  │                                      │__internal_decomp│                                      │__internal_decomp│
+│ss_string_uhugein│                                      │   c_last_name   │                                      │ ress_string(#1) │                                      │ ress_string(#1) │
+│      t(#1)      │                                      │c_preferred_cust_│                                      │__internal_decomp│                                      │__internal_decomp│
+│__internal_compre│                                      │       flag      │                                      │ ress_string(#2) │                                      │ ress_string(#2) │
+│ss_string_uhugein│                                      │ c_birth_country │                                      │__internal_decomp│                                      │__internal_decomp│
+│      t(#2)      │                                      │     c_login     │                                      │ ress_string(#3) │                                      │ ress_string(#3) │
+│__internal_compre│                                      │ c_email_address │                                      │        #4       │                                      │        #4       │
+│ss_string_utinyin│                                      │      d_year     │                                      │__internal_decomp│                                      │__internal_decomp│
+│      t(#3)      │                                      │    net_amount   │                                      │ ress_string(#5) │                                      │ ress_string(#5) │
+│        #4       │                                      │                 │                                      │        #6       │                                      │        #6       │
+│__internal_compre│                                      │                 │                                      │__internal_decomp│                                      │__internal_decomp│
+│ss_string_utinyin│                                      │                 │                                      │ress_integral_int│                                      │ress_integral_int│
+│      t(#5)      │                                      │                 │                                      │  eger(#7, 2001) │                                      │  eger(#7, 2001) │
+│        #6       │                                      │                 │                                      │        #8       │                                      │        #8       │
+│__internal_compre│                                      │                 │                                      │                 │                                      │                 │
+│ss_integral_utiny│                                      │                 │                                      │                 │                                      │                 │
+│  int(#7, 2001)  │                                      │                 │                                      │                 │                                      │                 │
+│        #8       │                                      │                 │                                      │                 │                                      │                 │
+│                 │                                      │                 │                                      │                 │                                      │                 │
+│   69,648 rows   │                                      │   22,090 rows   │                                      │   69,732 rows   │                                      │   22,299 rows   │
+│     (0.01s)     │                                      │     (0.00s)     │                                      │     (0.01s)     │                                      │     (0.00s)     │
+└────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘
+┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│    HASH_JOIN    │                                      │    PROJECTION   │                                      │  HASH_GROUP_BY  │                                      │  HASH_GROUP_BY  │
+│    ──────────   │                                      │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│    Join Type:   │                                      │        #0       │                                      │     Groups:     │                                      │     Groups:     │
+│      INNER      │                                      │__internal_compre│                                      │        #0       │                                      │        #0       │
+│                 │                                      │ss_string_uhugein│                                      │        #1       │                                      │        #1       │
+│   Conditions:   │                                      │      t(#1)      │                                      │        #2       │                                      │        #2       │
+│ c_customer_sk = │                                      │__internal_compre│                                      │        #3       │                                      │        #3       │
+│  ss_customer_sk │                                      │ss_string_uhugein│                                      │        #4       │                                      │        #4       │
+│                 │                                      │      t(#2)      │                                      │        #5       │                                      │        #5       │
+│                 │                                      │__internal_compre│                                      │        #6       │                                      │        #6       │
+│                 │                                      │ss_string_utinyin│                                      │        #7       │                                      │        #7       │
+│                 │                                      │      t(#3)      │                                      │                 │                                      │                 │
+│                 ├─────────┐                            │        #4       │                                      │   Aggregates:   │                                      │   Aggregates:   │
+│                 │         │                            │__internal_compre│                                      │     sum(#8)     │                                      │     sum(#8)     │
+│                 │         │                            │ss_string_utinyin│                                      │                 │                                      │                 │
+│                 │         │                            │      t(#5)      │                                      │                 │                                      │                 │
+│                 │         │                            │        #6       │                                      │                 │                                      │                 │
+│                 │         │                            │__internal_compre│                                      │                 │                                      │                 │
+│                 │         │                            │ss_integral_utiny│                                      │                 │                                      │                 │
+│                 │         │                            │  int(#7, 2001)  │                                      │                 │                                      │                 │
+│                 │         │                            │        #8       │                                      │                 │                                      │                 │
+│                 │         │                            │                 │                                      │                 │                                      │                 │
+│   69,648 rows   │         │                            │   22,090 rows   │                                      │   69,732 rows   │                                      │   22,299 rows   │
+│     (0.01s)     │         │                            │     (0.00s)     │                                      │     (0.09s)     │                                      │     (0.03s)     │
+└────────┬────────┘         │                            └────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘
+┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+│    TABLE_SCAN   ││    PROJECTION   │                   │    HASH_JOIN    │                                      │    PROJECTION   │                                      │    PROJECTION   │
+│    ──────────   ││    ──────────   │                   │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+│      Table:     ││        #0       │                   │    Join Type:   │                                      │  c_customer_id  │                                      │  c_customer_id  │
+│     customer    ││__internal_decomp│                   │      INNER      │                                      │   c_first_name  │                                      │   c_first_name  │
+│                 ││ress_integral_int│                   │                 │                                      │   c_last_name   │                                      │   c_last_name   │
+│      Type:      ││  eger(#1, 2001) │                   │   Conditions:   │                                      │c_preferred_cust_│                                      │c_preferred_cust_│
+│ Sequential Scan ││        #2       │                   │ c_customer_sk = │                                      │       flag      │                                      │       flag      │
+│                 ││                 │                   │ ws_bill_customer│                                      │ c_birth_country │                                      │ c_birth_country │
+│   Projections:  ││                 │                   │       _sk       │                                      │     c_login     │                                      │     c_login     │
+│  c_customer_sk  ││                 │                   │                 │                                      │ c_email_address │                                      │ c_email_address │
+│  c_customer_id  ││                 │                   │                 ├─────────┐                            │      d_year     │                                      │      d_year     │
+│   c_first_name  ││                 │                   │                 │         │                            │    net_amount   │                                      │    net_amount   │
+│   c_last_name   ││                 │                   │                 │         │                            │                 │                                      │                 │
+│c_preferred_cust_││                 │                   │                 │         │                            │                 │                                      │                 │
+│       flag      ││                 │                   │                 │         │                            │                 │                                      │                 │
+│ c_birth_country ││                 │                   │                 │         │                            │                 │                                      │                 │
+│     c_login     ││                 │                   │                 │         │                            │                 │                                      │                 │
+│ c_email_address ││                 │                   │                 │         │                            │                 │                                      │                 │
+│                 ││                 │                   │                 │         │                            │                 │                                      │                 │
+│   143,539 rows  ││   69,862 rows   │                   │   22,090 rows   │         │                            │   69,732 rows   │                                      │   22,299 rows   │
+│     (0.05s)     ││     (0.00s)     │                   │     (0.01s)     │         │                            │     (0.00s)     │                                      │     (0.00s)     │
+└─────────────────┘└────────┬────────┘                   └────────┬────────┘         │                            └────────┬────────┘                                      └────────┬────────┘
+                   ┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐
+                   │  HASH_GROUP_BY  │                   │    TABLE_SCAN   ││    PROJECTION   │                   │    PROJECTION   │                                      │    PROJECTION   │
+                   │    ──────────   │                   │    ──────────   ││    ──────────   │                   │    ──────────   │                                      │    ──────────   │
+                   │     Groups:     │                   │      Table:     ││        #0       │                   │        #0       │                                      │        #0       │
+                   │        #0       │                   │     customer    ││__internal_decomp│                   │__internal_compre│                                      │__internal_compre│
+                   │        #1       │                   │                 ││ress_integral_int│                   │ss_string_uhugein│                                      │ss_string_uhugein│
+                   │                 │                   │      Type:      ││  eger(#1, 2001) │                   │      t(#1)      │                                      │      t(#1)      │
+                   │   Aggregates:   │                   │ Sequential Scan ││        #2       │                   │__internal_compre│                                      │__internal_compre│
+                   │     sum(#2)     │                   │                 ││                 │                   │ss_string_uhugein│                                      │ss_string_uhugein│
+                   │                 │                   │   Projections:  ││                 │                   │      t(#2)      │                                      │      t(#2)      │
+                   │                 │                   │  c_customer_sk  ││                 │                   │__internal_compre│                                      │__internal_compre│
+                   │                 │                   │  c_customer_id  ││                 │                   │ss_string_utinyin│                                      │ss_string_utinyin│
+                   │                 │                   │   c_first_name  ││                 │                   │      t(#3)      │                                      │      t(#3)      │
+                   │                 │                   │   c_last_name   ││                 │                   │        #4       │                                      │        #4       │
+                   │                 │                   │c_preferred_cust_││                 │                   │__internal_compre│                                      │__internal_compre│
+                   │                 │                   │       flag      ││                 │                   │ss_string_utinyin│                                      │ss_string_utinyin│
+                   │                 │                   │ c_birth_country ││                 │                   │      t(#5)      │                                      │      t(#5)      │
+                   │                 │                   │     c_login     ││                 │                   │        #6       │                                      │        #6       │
+                   │                 │                   │ c_email_address ││                 │                   │__internal_compre│                                      │__internal_compre│
+                   │                 │                   │                 ││                 │                   │ss_integral_utiny│                                      │ss_integral_utiny│
+                   │                 │                   │                 ││                 │                   │  int(#7, 2001)  │                                      │  int(#7, 2001)  │
+                   │                 │                   │                 ││                 │                   │        #8       │                                      │        #8       │
+                   │                 │                   │                 ││                 │                   │                 │                                      │                 │
+                   │   69,862 rows   │                   │   143,996 rows  ││   22,091 rows   │                   │   69,732 rows   │                                      │   22,299 rows   │
+                   │     (0.16s)     │                   │     (0.05s)     ││     (0.00s)     │                   │     (0.01s)     │                                      │     (0.00s)     │
+                   └────────┬────────┘                   └─────────────────┘└────────┬────────┘                   └────────┬────────┘                                      └────────┬────────┘
+                   ┌────────┴────────┐                                      ┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐
+                   │    PROJECTION   │                                      │  HASH_GROUP_BY  │                   │    HASH_JOIN    │                                      │    HASH_JOIN    │
+                   │    ──────────   │                                      │    ──────────   │                   │    ──────────   │                                      │    ──────────   │
+                   │  ss_customer_sk │                                      │     Groups:     │                   │    Join Type:   │                                      │    Join Type:   │
+                   │      d_year     │                                      │        #0       │                   │      INNER      │                                      │      INNER      │
+                   │(ss_ext_list_pric│                                      │        #1       │                   │                 │                                      │                 │
+                   │e - ss_ext_discou│                                      │                 │                   │   Conditions:   │                                      │   Conditions:   │
+                   │     nt_amt)     │                                      │   Aggregates:   │                   │ c_customer_sk = ├─────────┐                            │ c_customer_sk = ├─────────┐
+                   │                 │                                      │     sum(#2)     │                   │  ss_customer_sk │         │                            │ ws_bill_customer│         │
+                   │                 │                                      │                 │                   │                 │         │                            │       _sk       │         │
+                   │                 │                                      │                 │                   │                 │         │                            │                 │         │
+                   │  1,098,040 rows │                                      │   22,091 rows   │                   │   69,732 rows   │         │                            │   22,299 rows   │         │
+                   │     (0.02s)     │                                      │     (0.05s)     │                   │     (0.01s)     │         │                            │     (0.00s)     │         │
+                   └────────┬────────┘                                      └────────┬────────┘                   └────────┬────────┘         │                            └────────┬────────┘         │
+                   ┌────────┴────────┐                                      ┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐
+                   │    PROJECTION   │                                      │    PROJECTION   │                   │    TABLE_SCAN   ││    PROJECTION   │                   │    TABLE_SCAN   ││    PROJECTION   │
+                   │    ──────────   │                                      │    ──────────   │                   │    ──────────   ││    ──────────   │                   │    ──────────   ││    ──────────   │
+                   │        #0       │                                      │ws_bill_customer_│                   │      Table:     ││        #0       │                   │      Table:     ││        #0       │
+                   │        #1       │                                      │        sk       │                   │     customer    ││__internal_decomp│                   │     customer    ││__internal_decomp│
+                   │        #2       │                                      │      d_year     │                   │                 ││ress_integral_int│                   │                 ││ress_integral_int│
+                   │__internal_compre│                                      │(ws_ext_list_pric│                   │      Type:      ││  eger(#1, 2001) │                   │      Type:      ││  eger(#1, 2001) │
+                   │ss_integral_utiny│                                      │e - ws_ext_discou│                   │ Sequential Scan ││        #2       │                   │ Sequential Scan ││        #2       │
+                   │  int(#3, 2001)  │                                      │     nt_amt)     │                   │                 ││                 │                   │                 ││                 │
+                   │                 │                                      │                 │                   │   Projections:  ││                 │                   │   Projections:  ││                 │
+                   │                 │                                      │                 │                   │  c_customer_sk  ││                 │                   │  c_customer_sk  ││                 │
+                   │                 │                                      │                 │                   │  c_customer_id  ││                 │                   │  c_customer_id  ││                 │
+                   │                 │                                      │                 │                   │   c_first_name  ││                 │                   │   c_first_name  ││                 │
+                   │                 │                                      │                 │                   │   c_last_name   ││                 │                   │   c_last_name   ││                 │
+                   │                 │                                      │                 │                   │c_preferred_cust_││                 │                   │c_preferred_cust_││                 │
+                   │                 │                                      │                 │                   │       flag      ││                 │                   │       flag      ││                 │
+                   │                 │                                      │                 │                   │ c_birth_country ││                 │                   │ c_birth_country ││                 │
+                   │                 │                                      │                 │                   │     c_login     ││                 │                   │     c_login     ││                 │
+                   │                 │                                      │                 │                   │ c_email_address ││                 │                   │ c_email_address ││                 │
+                   │                 │                                      │                 │                   │                 ││                 │                   │                 ││                 │
+                   │  1,098,040 rows │                                      │   287,588 rows  │                   │   144,000 rows  ││   69,733 rows   │                   │   143,975 rows  ││   22,300 rows   │
+                   │     (0.01s)     │                                      │     (0.00s)     │                   │     (0.04s)     ││     (0.00s)     │                   │     (0.04s)     ││     (0.00s)     │
+                   └────────┬────────┘                                      └────────┬────────┘                   └─────────────────┘└────────┬────────┘                   └─────────────────┘└────────┬────────┘
+                   ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+                   │    HASH_JOIN    │                                      │    PROJECTION   │                                      │  HASH_GROUP_BY  │                                      │  HASH_GROUP_BY  │
+                   │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+                   │    Join Type:   │                                      │        #0       │                                      │     Groups:     │                                      │     Groups:     │
+                   │      INNER      │                                      │        #1       │                                      │        #0       │                                      │        #0       │
+                   │                 │                                      │        #2       │                                      │        #1       │                                      │        #1       │
+                   │   Conditions:   ├─────────┐                            │__internal_compre│                                      │                 │                                      │                 │
+                   │ ss_sold_date_sk │         │                            │ss_integral_utiny│                                      │   Aggregates:   │                                      │   Aggregates:   │
+                   │   = d_date_sk   │         │                            │  int(#3, 2001)  │                                      │     sum(#2)     │                                      │     sum(#2)     │
+                   │                 │         │                            │                 │                                      │                 │                                      │                 │
+                   │  1,098,040 rows │         │                            │   287,588 rows  │                                      │   69,733 rows   │                                      │   22,300 rows   │
+                   │     (0.03s)     │         │                            │     (0.00s)     │                                      │     (0.18s)     │                                      │     (0.04s)     │
+                   └────────┬────────┘         │                            └────────┬────────┘                                      └────────┬────────┘                                      └────────┬────────┘
+                   ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐                                      ┌────────┴────────┐
+                   │    TABLE_SCAN   ││      FILTER     │                   │    HASH_JOIN    │                                      │    PROJECTION   │                                      │    PROJECTION   │
+                   │    ──────────   ││    ──────────   │                   │    ──────────   │                                      │    ──────────   │                                      │    ──────────   │
+                   │      Table:     ││    (d_date_sk   │                   │    Join Type:   │                                      │  ss_customer_sk │                                      │ws_bill_customer_│
+                   │   store_sales   ││  BETWEEN 2450816│                   │      INNER      │                                      │      d_year     │                                      │        sk       │
+                   │                 ││   AND 2452642)  │                   │                 │                                      │(ss_ext_list_pric│                                      │      d_year     │
+                   │      Type:      ││                 │                   │   Conditions:   │                                      │e - ss_ext_discou│                                      │(ws_ext_list_pric│
+                   │ Sequential Scan ││                 │                   │ ws_sold_date_sk │                                      │     nt_amt)     │                                      │e - ws_ext_discou│
+                   │                 ││                 │                   │   = d_date_sk   │                                      │                 │                                      │     nt_amt)     │
+                   │   Projections:  ││                 │                   │                 ├─────────┐                            │                 │                                      │                 │
+                   │ ss_sold_date_sk ││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │  ss_customer_sk ││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │ss_ext_list_price││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │ss_ext_discount_a││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │        mt       ││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │                 ││                 │                   │                 │         │                            │                 │                                      │                 │
+                   │  1,098,040 rows ││     365 rows    │                   │   287,588 rows  │         │                            │  1,093,647 rows │                                      │   290,323 rows  │
+                   │     (0.17s)     ││     (0.00s)     │                   │     (0.01s)     │         │                            │     (0.02s)     │                                      │     (0.00s)     │
+                   └─────────────────┘└────────┬────────┘                   └────────┬────────┘         │                            └────────┬────────┘                                      └────────┬────────┘
+                                      ┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐
+                                      │    TABLE_SCAN   │                   │    TABLE_SCAN   ││      FILTER     │                   │    PROJECTION   │                                      │    PROJECTION   │
+                                      │    ──────────   │                   │    ──────────   ││    ──────────   │                   │    ──────────   │                                      │    ──────────   │
+                                      │      Table:     │                   │      Table:     ││    (d_date_sk   │                   │        #0       │                                      │        #0       │
+                                      │     date_dim    │                   │    web_sales    ││  BETWEEN 2450816│                   │        #1       │                                      │        #1       │
+                                      │                 │                   │                 ││   AND 2452642)  │                   │        #2       │                                      │        #2       │
+                                      │      Type:      │                   │      Type:      ││                 │                   │__internal_compre│                                      │__internal_compre│
+                                      │ Sequential Scan │                   │ Sequential Scan ││                 │                   │ss_integral_utiny│                                      │ss_integral_utiny│
+                                      │                 │                   │                 ││                 │                   │  int(#3, 2001)  │                                      │  int(#3, 2001)  │
+                                      │   Projections:  │                   │   Projections:  ││                 │                   │                 │                                      │                 │
+                                      │    d_date_sk    │                   │ ws_sold_date_sk ││                 │                   │                 │                                      │                 │
+                                      │      d_year     │                   │ws_bill_customer_││                 │                   │                 │                                      │                 │
+                                      │                 │                   │        sk       ││                 │                   │                 │                                      │                 │
+                                      │     Filters:    │                   │ws_ext_list_price││                 │                   │                 │                                      │                 │
+                                      │ d_year=2002 AND │                   │ws_ext_discount_a││                 │                   │                 │                                      │                 │
+                                      │   d_year>=2001  │                   │        mt       ││                 │                   │                 │                                      │                 │
+                                      │ AND d_year<=2002│                   │                 ││                 │                   │                 │                                      │                 │
+                                      │                 │                   │                 ││                 │                   │                 │                                      │                 │
+                                      │     365 rows    │                   │   287,588 rows  ││     365 rows    │                   │  1,093,647 rows │                                      │   290,323 rows  │
+                                      │     (0.00s)     │                   │     (0.03s)     ││     (0.00s)     │                   │     (0.01s)     │                                      │     (0.00s)     │
+                                      └─────────────────┘                   └─────────────────┘└────────┬────────┘                   └────────┬────────┘                                      └────────┬────────┘
+                                                                                               ┌────────┴────────┐                   ┌────────┴────────┐                                      ┌────────┴────────┐
+                                                                                               │    TABLE_SCAN   │                   │    HASH_JOIN    │                                      │    HASH_JOIN    │
+                                                                                               │    ──────────   │                   │    ──────────   │                                      │    ──────────   │
+                                                                                               │      Table:     │                   │    Join Type:   │                                      │    Join Type:   │
+                                                                                               │     date_dim    │                   │      INNER      │                                      │      INNER      │
+                                                                                               │                 │                   │                 │                                      │                 │
+                                                                                               │      Type:      │                   │   Conditions:   │                                      │   Conditions:   │
+                                                                                               │ Sequential Scan │                   │ ss_sold_date_sk │                                      │ ws_sold_date_sk │
+                                                                                               │                 │                   │   = d_date_sk   │                                      │   = d_date_sk   │
+                                                                                               │   Projections:  │                   │                 │                                      │                 │
+                                                                                               │    d_date_sk    │                   │                 ├─────────┐                            │                 ├─────────┐
+                                                                                               │      d_year     │                   │                 │         │                            │                 │         │
+                                                                                               │                 │                   │                 │         │                            │                 │         │
+                                                                                               │     Filters:    │                   │                 │         │                            │                 │         │
+                                                                                               │ d_year=2002 AND │                   │                 │         │                            │                 │         │
+                                                                                               │   d_year>=2001  │                   │                 │         │                            │                 │         │
+                                                                                               │ AND d_year<=2002│                   │                 │         │                            │                 │         │
+                                                                                               │                 │                   │                 │         │                            │                 │         │
+                                                                                               │     365 rows    │                   │  1,093,647 rows │         │                            │   290,323 rows  │         │
+                                                                                               │     (0.00s)     │                   │     (0.03s)     │         │                            │     (0.01s)     │         │
+                                                                                               └─────────────────┘                   └────────┬────────┘         │                            └────────┬────────┘         │
+                                                                                                                                     ┌────────┴────────┐┌────────┴────────┐                   ┌────────┴────────┐┌────────┴────────┐
+                                                                                                                                     │    TABLE_SCAN   ││      FILTER     │                   │    TABLE_SCAN   ││      FILTER     │
+                                                                                                                                     │    ──────────   ││    ──────────   │                   │    ──────────   ││    ──────────   │
+                                                                                                                                     │      Table:     ││    (d_date_sk   │                   │      Table:     ││    (d_date_sk   │
+                                                                                                                                     │   store_sales   ││  BETWEEN 2450816│                   │    web_sales    ││  BETWEEN 2450816│
+                                                                                                                                     │                 ││   AND 2452642)  │                   │                 ││   AND 2452642)  │
+                                                                                                                                     │      Type:      ││                 │                   │      Type:      ││                 │
+                                                                                                                                     │ Sequential Scan ││                 │                   │ Sequential Scan ││                 │
+                                                                                                                                     │                 ││                 │                   │                 ││                 │
+                                                                                                                                     │   Projections:  ││                 │                   │   Projections:  ││                 │
+                                                                                                                                     │ ss_sold_date_sk ││                 │                   │ ws_sold_date_sk ││                 │
+                                                                                                                                     │  ss_customer_sk ││                 │                   │ws_bill_customer_││                 │
+                                                                                                                                     │ss_ext_list_price││                 │                   │        sk       ││                 │
+                                                                                                                                     │ss_ext_discount_a││                 │                   │ws_ext_list_price││                 │
+                                                                                                                                     │        mt       ││                 │                   │ws_ext_discount_a││                 │
+                                                                                                                                     │                 ││                 │                   │        mt       ││                 │
+                                                                                                                                     │                 ││                 │                   │                 ││                 │
+                                                                                                                                     │  1,093,647 rows ││     365 rows    │                   │   290,323 rows  ││     365 rows    │
+                                                                                                                                     │     (0.18s)     ││     (0.00s)     │                   │     (0.03s)     ││     (0.00s)     │
+                                                                                                                                     └─────────────────┘└────────┬────────┘                   └─────────────────┘└────────┬────────┘
+                                                                                                                                                        ┌────────┴────────┐                                      ┌────────┴────────┐
+                                                                                                                                                        │    TABLE_SCAN   │                                      │    TABLE_SCAN   │
+                                                                                                                                                        │    ──────────   │                                      │    ──────────   │
+                                                                                                                                                        │      Table:     │                                      │      Table:     │
+                                                                                                                                                        │     date_dim    │                                      │     date_dim    │
+                                                                                                                                                        │                 │                                      │                 │
+                                                                                                                                                        │      Type:      │                                      │      Type:      │
+                                                                                                                                                        │ Sequential Scan │                                      │ Sequential Scan │
+                                                                                                                                                        │                 │                                      │                 │
+                                                                                                                                                        │   Projections:  │                                      │   Projections:  │
+                                                                                                                                                        │    d_date_sk    │                                      │    d_date_sk    │
+                                                                                                                                                        │      d_year     │                                      │      d_year     │
+                                                                                                                                                        │                 │                                      │                 │
+                                                                                                                                                        │     Filters:    │                                      │     Filters:    │
+                                                                                                                                                        │ d_year=2001 AND │                                      │ d_year=2001 AND │
+                                                                                                                                                        │   d_year>=2001  │                                      │   d_year>=2001  │
+                                                                                                                                                        │ AND d_year<=2002│                                      │ AND d_year<=2002│
+                                                                                                                                                        │                 │                                      │                 │
+                                                                                                                                                        │     365 rows    │                                      │     365 rows    │
+                                                                                                                                                        │     (0.00s)     │                                      │     (0.00s)     │
+                                                                                                                                                        └─────────────────┘                                      └─────────────────┘

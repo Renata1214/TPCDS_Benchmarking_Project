@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Compare DuckDB estimated and actual cardinalities by JSON operator-tree path."""
 
+# Example: docker compose run --rm -T --entrypoint python3 tpcds scripts/compare_duckdb_cardinalities.py --query-ids 1 --timeout-seconds 120 1
+
 import argparse
 import csv
 import json

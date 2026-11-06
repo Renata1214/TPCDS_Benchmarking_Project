@@ -1,0 +1,324 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with v1 as (      select i_category,             i_brand,             s_store_name,             s_company_name,             d_year,             d_moy,             sum(ss_sales_price) as sum_sales,             avg(sum(ss_sales_price)) over (                 partition by i_category, i_brand,                              s_store_name, s_company_name, d_year             ) as avg_monthly_sales      from item, store_sales, date_dim, store      where ss_item_sk = i_item_sk        and ss_sold_date_sk = d_date_sk        and ss_store_sk = s_store_sk        and (            d_year = 2000            or (d_year = 2000-1 and d_moy = 12)            or (d_year = 2000+1 and d_moy = 1)        )      group by i_category, i_brand,               s_store_name, s_company_name,               d_year, d_moy  ),  v2 as (      select i_category, i_brand             ,d_year, d_moy             ,v1.avg_monthly_sales             ,v1.sum_sales             ,v1.i_category as __i_category             ,v1.i_brand as __i_brand             ,v1.s_store_name as __s_store_name             ,v1.s_company_name as __s_company_name             ,lag(v1.sum_sales) over (                 partition by v1.i_category, v1.i_brand,                              v1.s_store_name, v1.s_company_name                 order by v1.d_year, v1.d_moy             ) as psum             ,lead(v1.sum_sales) over (                 partition by v1.i_category, v1.i_brand,                              v1.s_store_name, v1.s_company_name                 order by v1.d_year, v1.d_moy             ) as nsum             ,lag(1) over (                 partition by v1.i_category, v1.i_brand,                              v1.s_store_name, v1.s_company_name                 order by v1.d_year, v1.d_moy             ) as has_previous             ,lead(1) over (                 partition by v1.i_category, v1.i_brand,                              v1.s_store_name, v1.s_company_name                 order by v1.d_year, v1.d_moy             ) as has_next      from v1  )   select          i_category, i_brand         ,d_year, d_moy         ,avg_monthly_sales         ,sum_sales         ,psum         ,nsum  from v2  where d_year = 2000    and avg_monthly_sales > 0    and __i_category is not null    and __i_brand is not null    and __s_store_name is not null    and __s_company_name is not null    and has_previous is not null    and has_next is not null    and case        when avg_monthly_sales > 0        then abs(sum_sales - avg_monthly_sales) / avg_monthly_sales        else null    end > 0.1  order by sum_sales - avg_monthly_sales, nsum  limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.116s              ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────────┐
+│           QUERY           │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│      EXPLAIN_ANALYZE      │
+│    ────────────────────   │
+│           0 rows          │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           TOP_N           │
+│    ────────────────────   │
+│          Top: 100         │
+│                           │
+│         Order By:         │
+│           #8 ASC          │
+│        v2.nsum ASC        │
+│                           │
+│          100 rows         │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_brand          │
+│           d_year          │
+│           d_moy           │
+│     avg_monthly_sales     │
+│         sum_sales         │
+│            psum           │
+│            nsum           │
+│ (CAST(sum_sales AS DOUBLE)│
+│    - avg_monthly_sales)   │
+│                           │
+│        47,161 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│       (CASE  WHEN (       │
+│ (avg_monthly_sales > 0.0))│
+│      THEN ((abs((CAST     │
+│  (sum_sales AS DOUBLE) -  │
+│    avg_monthly_sales)) /  │
+│  avg_monthly_sales)) ELSE │
+│       NULL END > 0.1)     │
+│                           │
+│        47,161 rows        │
+│          (0.01s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_brand          │
+│           d_year          │
+│           d_moy           │
+│     avg_monthly_sales     │
+│         sum_sales         │
+│            psum           │
+│            nsum           │
+│                           │
+│        52,004 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│                           │
+│        52,004 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           FILTER          │
+│    ────────────────────   │
+│ ((has_previous IS NOT NULL│
+│   ) AND (has_next IS NOT  │
+│  NULL) AND (d_year = 2000)│
+│  AND (avg_monthly_sales > │
+│            0.0))          │
+│                           │
+│        52,004 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│             #8            │
+│             #9            │
+│            #10            │
+│            #11            │
+│                           │
+│        62,634 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│    LAG(sum_sales) OVER    │
+│ (PARTITION BY i_category, │
+│   i_brand, s_store_name,  │
+│   s_company_name ORDER BY │
+│   d_year ASC NULLS LAST,  │
+│    d_moy ASC NULLS LAST)  │
+│   LEAD(sum_sales) OVER    │
+│ (PARTITION BY i_category, │
+│   i_brand, s_store_name,  │
+│   s_company_name ORDER BY │
+│   d_year ASC NULLS LAST,  │
+│    d_moy ASC NULLS LAST)  │
+│ LAG(1) OVER (PARTITION BY │
+│    i_category, i_brand,   │
+│        s_store_name,      │
+│   s_company_name ORDER BY │
+│   d_year ASC NULLS LAST,  │
+│    d_moy ASC NULLS LAST)  │
+│ LEAD(1) OVER (PARTITION BY│
+│    i_category, i_brand,   │
+│        s_store_name,      │
+│   s_company_name ORDER BY │
+│   d_year ASC NULLS LAST,  │
+│    d_moy ASC NULLS LAST)  │
+│                           │
+│        62,634 rows        │
+│          (0.11s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│             #6            │
+│             #7            │
+│                           │
+│        62,634 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│           WINDOW          │
+│    ────────────────────   │
+│        Projections:       │
+│  avg(sum(ss_sales_price)) │
+│     OVER (PARTITION BY    │
+│    i_category, i_brand,   │
+│        s_store_name,      │
+│   s_company_name, d_year) │
+│                           │
+│        62,634 rows        │
+│          (0.12s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_decompress_strin│
+│           g(#0)           │
+│             #1            │
+│__internal_decompress_strin│
+│           g(#2)           │
+│__internal_decompress_strin│
+│           g(#3)           │
+│__internal_decompress_integ│
+│   ral_integer(#4, 1900)   │
+│__internal_decompress_integ│
+│     ral_integer(#5, 1)    │
+│             #6            │
+│                           │
+│        62,634 rows        │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│       HASH_GROUP_BY       │
+│    ────────────────────   │
+│          Groups:          │
+│             #0            │
+│             #1            │
+│             #2            │
+│             #3            │
+│             #4            │
+│             #5            │
+│                           │
+│    Aggregates: sum(#6)    │
+│                           │
+│        62,634 rows        │
+│          (0.37s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│         i_category        │
+│          i_brand          │
+│        s_store_name       │
+│       s_company_name      │
+│           d_year          │
+│           d_moy           │
+│       ss_sales_price      │
+│                           │
+│        658,520 rows       │
+│          (0.00s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         PROJECTION        │
+│    ────────────────────   │
+│__internal_compress_string_│
+│        uhugeint(#3)       │
+│             #4            │
+│             #0            │
+│__internal_compress_string_│
+│        ubigint(#1)        │
+│__internal_compress_string_│
+│        ubigint(#2)        │
+│__internal_compress_integra│
+│    l_utinyint(#5, 1900)   │
+│__internal_compress_integra│
+│     l_utinyint(#6, 1)     │
+│                           │
+│        658,520 rows       │
+│          (0.05s)          │
+└─────────────┬─────────────┘
+┌─────────────┴─────────────┐
+│         HASH_JOIN         │
+│    ────────────────────   │
+│      Join Type: INNER     │
+│                           │
+│        Conditions:        ├────────────────────────────────────────────────────────────────────────┐
+│ss_sold_date_sk = d_date_sk│                                                                        │
+│                           │                                                                        │
+│        658,520 rows       │                                                                        │
+│          (0.02s)          │                                                                        │
+└─────────────┬─────────────┘                                                                        │
+┌─────────────┴─────────────┐                                                          ┌─────────────┴─────────────┐
+│         HASH_JOIN         │                                                          │           FILTER          │
+│    ────────────────────   │                                                          │    ────────────────────   │
+│      Join Type: INNER     │                                                          │   ((d_year = 2000) OR (   │
+│                           │                                                          │ (d_year = 1999) AND (d_moy│
+│        Conditions:        ├───────────────────────────────────────────┐              │  = 12)) OR ((d_year = 2001│
+│   ss_item_sk = i_item_sk  │                                           │              │    ) AND (d_moy = 1)))    │
+│                           │                                           │              │                           │
+│        658,520 rows       │                                           │              │          428 rows         │
+│          (0.02s)          │                                           │              │          (0.00s)          │
+└─────────────┬─────────────┘                                           │              └─────────────┬─────────────┘
+┌─────────────┴─────────────┐                             ┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         HASH_JOIN         │                             │         TABLE_SCAN        ││         TABLE_SCAN        │
+│    ────────────────────   │                             │    ────────────────────   ││    ────────────────────   │
+│      Join Type: INNER     │                             │        Table: item        ││      Table: date_dim      │
+│                           │                             │   Type: Sequential Scan   ││   Type: Sequential Scan   │
+│        Conditions:        │                             │                           ││                           │
+│  ss_store_sk = s_store_sk │                             │        Projections:       ││        Projections:       │
+│                           │                             │         i_item_sk         ││         d_date_sk         │
+│                           │                             │         i_category        ││           d_year          │
+│                           ├──────────────┐              │          i_brand          ││           d_moy           │
+│                           │              │              │                           ││                           │
+│                           │              │              │          Filters:         ││          Filters:         │
+│                           │              │              │  (i_category IS NOT NULL) ││   d_date_sk>=2450816 AND  │
+│                           │              │              │   (i_brand IS NOT NULL)   ││     d_date_sk<=2452642    │
+│                           │              │              │                           ││                           │
+│        661,185 rows       │              │              │        17,937 rows        ││         1,827 rows        │
+│          (0.01s)          │              │              │          (0.00s)          ││          (0.00s)          │
+└─────────────┬─────────────┘              │              └───────────────────────────┘└───────────────────────────┘
+┌─────────────┴─────────────┐┌─────────────┴─────────────┐
+│         TABLE_SCAN        ││         TABLE_SCAN        │
+│    ────────────────────   ││    ────────────────────   │
+│     Table: store_sales    ││        Table: store       │
+│   Type: Sequential Scan   ││      Type: Index Scan     │
+│                           ││                           │
+│        Projections:       ││        Projections:       │
+│         ss_item_sk        ││         s_store_sk        │
+│      ss_sold_date_sk      ││        s_store_name       │
+│        ss_store_sk        ││       s_company_name      │
+│       ss_sales_price      ││                           │
+│                           ││          Filters:         │
+│                           ││       s_store_sk<=10      │
+│                           ││                           │
+│        661,185 rows       ││          10 rows          │
+│          (0.09s)          ││          (0.00s)          │
+└───────────────────────────┘└───────────────────────────┘

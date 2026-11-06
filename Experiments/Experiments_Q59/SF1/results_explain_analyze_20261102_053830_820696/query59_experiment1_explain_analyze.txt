@@ -1,0 +1,171 @@
+┌─────────────────────────────────────┐
+│┌───────────────────────────────────┐│
+││    Query Profiling Information    ││
+│└───────────────────────────────────┘│
+└─────────────────────────────────────┘
+EXPLAIN ANALYZE with wss as  (select d_week_seq,         ss_store_sk,         sum(ss_sales_price) filter (where d_day_name='Sunday') sun_sales,         sum(ss_sales_price) filter (where d_day_name='Monday') mon_sales,         sum(ss_sales_price) filter (where d_day_name='Tuesday') tue_sales,         sum(ss_sales_price) filter (where d_day_name='Wednesday') wed_sales,         sum(ss_sales_price) filter (where d_day_name='Thursday') thu_sales,         sum(ss_sales_price) filter (where d_day_name='Friday') fri_sales,         sum(ss_sales_price) filter (where d_day_name='Saturday') sat_sales  from store_sales,date_dim  where d_date_sk = ss_sold_date_sk    and d_week_seq in (select d_week_seq from date_dim                       where d_month_seq between 1185 and 1185 + 23)  group by d_week_seq,ss_store_sk  )   select  s_store_name1,s_store_id1,d_week_seq1        ,sun_sales1/sun_sales2,mon_sales1/mon_sales2        ,tue_sales1/tue_sales2,wed_sales1/wed_sales2,thu_sales1/thu_sales2        ,fri_sales1/fri_sales2,sat_sales1/sat_sales2  from  (select s_store_name s_store_name1,wss.d_week_seq d_week_seq1         ,s_store_id s_store_id1,sun_sales sun_sales1         ,mon_sales mon_sales1,tue_sales tue_sales1         ,wed_sales wed_sales1,thu_sales thu_sales1         ,fri_sales fri_sales1,sat_sales sat_sales1   from wss,store,date_dim d   where d.d_week_seq = wss.d_week_seq and         ss_store_sk = s_store_sk and         d_month_seq between 1185 and 1185 + 11) y,  (select s_store_name s_store_name2,wss.d_week_seq d_week_seq2         ,s_store_id s_store_id2,sun_sales sun_sales2         ,mon_sales mon_sales2,tue_sales tue_sales2         ,wed_sales wed_sales2,thu_sales thu_sales2         ,fri_sales fri_sales2,sat_sales sat_sales2   from wss,store,date_dim d   where d.d_week_seq = wss.d_week_seq and         ss_store_sk = s_store_sk and         d_month_seq between 1185+ 12 and 1185 + 23) x  where s_store_id1=s_store_id2    and d_week_seq1=d_week_seq2-52  order by s_store_name1,s_store_id1,d_week_seq1 limit 100;
+┌────────────────────────────────────────────────┐
+│┌──────────────────────────────────────────────┐│
+││              Total Time: 0.0911s             ││
+│└──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────┘
+┌───────────────────────┐
+│         QUERY         │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│    EXPLAIN_ANALYZE    │
+│    ────────────────   │
+│         0 rows        │
+│        (0.00s)        │
+└───────────┬───────────┘
+┌───────────┴───────────┐
+│          CTE          │
+│    ────────────────   │
+│     CTE Name: wss     │
+│     Table Index: 0    ├──────────────────────────────────────────────────────────────┐
+│                       │                                                              │
+│         0 rows        │                                                              │
+│        (0.00s)        │                                                              │
+└───────────┬───────────┘                                                              │
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │         TOP_N         │
+│    ────────────────   │                                                  │    ────────────────   │
+│__internal_decompress_i│                                                  │        Top: 100       │
+│ ntegral_integer(#0, 1)│                                                  │                       │
+│__internal_decompress_i│                                                  │       Order By:       │
+│ ntegral_integer(#1, 1)│                                                  │  y.s_store_name1 ASC  │
+│           #2          │                                                  │   y.s_store_id1 ASC   │
+│           #3          │                                                  │   y.d_week_seq1 ASC   │
+│           #4          │                                                  │                       │
+│           #5          │                                                  │                       │
+│           #6          │                                                  │                       │
+│           #7          │                                                  │                       │
+│           #8          │                                                  │                       │
+│                       │                                                  │                       │
+│        735 rows       │                                                  │        100 rows       │
+│        (0.00s)        │                                                  │        (0.00s)        │
+└───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│     HASH_GROUP_BY     │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │
+│        Groups:        │                                                  │     s_store_name1     │
+│           #0          │                                                  │      s_store_id1      │
+│           #1          │                                                  │      d_week_seq1      │
+│                       │                                                  │  (CAST(sun_sales1 AS  │
+│      Aggregates:      │                                                  │     DOUBLE) / CAST    │
+│ sum(#2) FILTER (WHERE │                                                  │(sun_sales2 AS DOUBLE))│
+│     #7) Filter: #7    │                                                  │  (CAST(mon_sales1 AS  │
+│ sum(#4) FILTER (WHERE │                                                  │     DOUBLE) / CAST    │
+│     #8) Filter: #8    │                                                  │(mon_sales2 AS DOUBLE))│
+│ sum(#6) FILTER (WHERE │                                                  │  (CAST(tue_sales1 AS  │
+│     #9) Filter: #9    │                                                  │     DOUBLE) / CAST    │
+│ sum(#8) FILTER (WHERE │                                                  │(tue_sales2 AS DOUBLE))│
+│    #10) Filter: #10   │                                                  │  (CAST(wed_sales1 AS  │
+│ sum(#10) FILTER (WHERE│                                                  │     DOUBLE) / CAST    │
+│    #11) Filter: #11   │                                                  │(wed_sales2 AS DOUBLE))│
+│ sum(#12) FILTER (WHERE│                                                  │  (CAST(thu_sales1 AS  │
+│    #12) Filter: #12   │                                                  │     DOUBLE) / CAST    │
+│ sum(#14) FILTER (WHERE│                                                  │(thu_sales2 AS DOUBLE))│
+│    #13) Filter: #13   │                                                  │  (CAST(fri_sales1 AS  │
+│                       │                                                  │     DOUBLE) / CAST    │
+│                       │                                                  │(fri_sales2 AS DOUBLE))│
+│                       │                                                  │  (CAST(sat_sales1 AS  │
+│                       │                                                  │     DOUBLE) / CAST    │
+│                       │                                                  │(sat_sales2 AS DOUBLE))│
+│                       │                                                  │                       │
+│        735 rows       │                                                  │      15,204 rows      │
+│        (0.35s)        │                                                  │        (0.01s)        │
+└───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       HASH_JOIN       │
+│    ────────────────   │                                                  │    ────────────────   │
+│       d_week_seq      │                                                  │    Join Type: INNER   │
+│      ss_store_sk      │                                                  │                       │
+│     ss_sales_price    │                                                  │      Conditions:      │
+│(d_day_name = 'Sunday')│                                                  │     s_store_id1 =     │
+│     ss_sales_price    │                                                  │       s_store_id2     │
+│(d_day_name = 'Monday')│                                                  │     d_week_seq1 =     │
+│     ss_sales_price    │                                                  │   (d_week_seq2 - 52)  │
+│ (d_day_name = 'Tuesday│                                                  │                       │
+│           ')          │                                                  │                       │
+│     ss_sales_price    │                                                  │                       │
+│     (d_day_name =     │                                                  │                       ├──────────────────────────────────────────────────────────────┐
+│      'Wednesday')     │                                                  │                       │                                                              │
+│     ss_sales_price    │                                                  │                       │                                                              │
+│     (d_day_name =     │                                                  │                       │                                                              │
+│      'Thursday')      │                                                  │                       │                                                              │
+│     ss_sales_price    │                                                  │                       │                                                              │
+│(d_day_name = 'Friday')│                                                  │                       │                                                              │
+│     ss_sales_price    │                                                  │                       │                                                              │
+│     (d_day_name =     │                                                  │                       │                                                              │
+│      'Saturday')      │                                                  │                       │                                                              │
+│                       │                                                  │                       │                                                              │
+│     1,108,281 rows    │                                                  │      15,204 rows      │                                                              │
+│        (0.07s)        │                                                  │        (0.00s)        │                                                              │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                              │
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       PROJECTION      │                                                  │       PROJECTION      │                                                  │       PROJECTION      │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│__internal_compress_int│                                                  │     s_store_name1     │                                                  │      d_week_seq2      │
+│ egral_utinyint(#0, 1) │                                                  │      d_week_seq1      │                                                  │      s_store_id2      │
+│           #1          │                                                  │      s_store_id1      │                                                  │       sun_sales2      │
+│__internal_compress_int│                                                  │       sun_sales1      │                                                  │       mon_sales2      │
+│ egral_usmallint(#2, 1)│                                                  │       mon_sales1      │                                                  │       tue_sales2      │
+│           #3          │                                                  │       tue_sales1      │                                                  │       wed_sales2      │
+│                       │                                                  │       wed_sales1      │                                                  │       thu_sales2      │
+│                       │                                                  │       thu_sales1      │                                                  │       fri_sales2      │
+│                       │                                                  │       fri_sales1      │                                                  │       sat_sales2      │
+│                       │                                                  │       sat_sales1      │                                                  │                       │
+│                       │                                                  │                       │                                                  │                       │
+│     1,108,281 rows    │                                                  │       2,190 rows      │                                                  │       2,196 rows      │
+│        (0.02s)        │                                                  │        (0.00s)        │                                                  │        (0.00s)        │
+└───────────┬───────────┘                                                  └───────────┬───────────┘                                                  └───────────┬───────────┘
+┌───────────┴───────────┐                                                  ┌───────────┴───────────┐                                                  ┌───────────┴───────────┐
+│       HASH_JOIN       │                                                  │       HASH_JOIN       │                                                  │       HASH_JOIN       │
+│    ────────────────   │                                                  │    ────────────────   │                                                  │    ────────────────   │
+│    Join Type: INNER   │                                                  │    Join Type: INNER   │                                                  │    Join Type: INNER   │
+│                       │                                                  │                       │                                                  │                       │
+│      Conditions:      │                                                  │      Conditions:      │                                                  │      Conditions:      │
+│   ss_sold_date_sk =   ├────────────┐                                     │d_week_seq = d_week_seq├────────────┐                                     │d_week_seq = d_week_seq├────────────┐
+│        d_date_sk      │            │                                     │                       │            │                                     │                       │            │
+│                       │            │                                     │                       │            │                                     │                       │            │
+│     1,108,281 rows    │            │                                     │       2,190 rows      │            │                                     │       2,196 rows      │            │
+│        (0.03s)        │            │                                     │        (0.00s)        │            │                                     │        (0.00s)        │            │
+└───────────┬───────────┘            │                                     └───────────┬───────────┘            │                                     └───────────┬───────────┘            │
+┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐
+│       TABLE_SCAN      ││       HASH_JOIN       │                         │       TABLE_SCAN      ││       HASH_JOIN       │                         │       TABLE_SCAN      ││       HASH_JOIN       │
+│    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │
+│         Table:        ││    Join Type: SEMI    │                         │    Table: date_dim    ││    Join Type: INNER   │                         │    Table: date_dim    ││    Join Type: INNER   │
+│      store_sales      ││                       │                         │                       ││                       │                         │                       ││                       │
+│                       ││      Conditions:      │                         │         Type:         ││      Conditions:      │                         │         Type:         ││      Conditions:      │
+│         Type:         ││    d_week_seq = #0    │                         │    Sequential Scan    ││     ss_store_sk =     │                         │    Sequential Scan    ││     ss_store_sk =     │
+│    Sequential Scan    ││                       │                         │                       ││       s_store_sk      │                         │                       ││       s_store_sk      │
+│                       ││                       ├────────────┐            │        Filters:       ││                       ├────────────┐            │        Filters:       ││                       ├────────────┐
+│      Projections:     ││                       │            │            │ d_month_seq>=1185 AND ││                       │            │            │ d_month_seq>=1197 AND ││                       │            │
+│    ss_sold_date_sk    ││                       │            │            │    d_month_seq<=1196  ││                       │            │            │    d_month_seq<=1208  ││                       │            │
+│      ss_store_sk      ││                       │            │            │                       ││                       │            │            │                       ││                       │            │
+│     ss_sales_price    ││                       │            │            │                       ││                       │            │            │                       ││                       │            │
+│                       ││                       │            │            │                       ││                       │            │            │                       ││                       │            │
+│     1,108,281 rows    ││        735 rows       │            │            │        365 rows       ││        630 rows       │            │            │        366 rows       ││        630 rows       │            │
+│        (0.08s)        ││        (0.00s)        │            │            │        (0.00s)        ││        (0.00s)        │            │            │        (0.00s)        ││        (0.00s)        │            │
+└───────────────────────┘└───────────┬───────────┘            │            └───────────────────────┘└───────────┬───────────┘            │            └───────────────────────┘└───────────┬───────────┘            │
+                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐                         ┌───────────┴───────────┐┌───────────┴───────────┐
+                         │       TABLE_SCAN      ││       TABLE_SCAN      │                         │        CTE_SCAN       ││       TABLE_SCAN      │                         │        CTE_SCAN       ││       TABLE_SCAN      │
+                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │                         │    ────────────────   ││    ────────────────   │
+                         │    Table: date_dim    ││    Table: date_dim    │                         │      CTE Index: 0     ││      Table: store     │                         │      CTE Index: 0     ││      Table: store     │
+                         │                       ││                       │                         │                       ││                       │                         │                       ││                       │
+                         │         Type:         ││         Type:         │                         │                       ││         Type:         │                         │                       ││         Type:         │
+                         │    Sequential Scan    ││    Sequential Scan    │                         │                       ││    Sequential Scan    │                         │                       ││    Sequential Scan    │
+                         │                       ││                       │                         │                       ││                       │                         │                       ││                       │
+                         │      Projections:     ││      Projections:     │                         │                       ││                       │                         │                       ││                       │
+                         │       d_date_sk       ││       d_week_seq      │                         │                       ││                       │                         │                       ││                       │
+                         │       d_week_seq      ││                       │                         │                       ││                       │                         │                       ││                       │
+                         │       d_day_name      ││        Filters:       │                         │                       ││                       │                         │                       ││                       │
+                         │                       ││ d_month_seq>=1185 AND │                         │                       ││                       │                         │                       ││                       │
+                         │        Filters:       ││    d_month_seq<=1208  │                         │                       ││                       │                         │                       ││                       │
+                         │ d_date_sk>=2450816 AND││                       │                         │                       ││                       │                         │                       ││                       │
+                         │   d_date_sk<=2452642  ││                       │                         │                       ││                       │                         │                       ││                       │
+                         │                       ││                       │                         │                       ││                       │                         │                       ││                       │
+                         │        735 rows       ││        731 rows       │                         │        735 rows       ││        12 rows        │                         │        735 rows       ││        12 rows        │
+                         │        (0.00s)        ││        (0.00s)        │                         │        (0.00s)        ││        (0.00s)        │                         │        (0.00s)        ││        (0.00s)        │
+                         └───────────────────────┘└───────────────────────┘                         └───────────────────────┘└───────────────────────┘                         └───────────────────────┘└───────────────────────┘

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Create SVG visualizations from one benchmark run's per-scale summaries."""
 
+# Example: python3 scripts/plot_benchmark_results.py results/benchmark_runs/<run_id>
+
 import argparse
 import csv
 import html
