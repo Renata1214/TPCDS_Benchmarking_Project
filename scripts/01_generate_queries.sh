@@ -12,10 +12,22 @@ export LC_ALL=C
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLS="$ROOT_DIR/Kit/DSGen-software-code-4.0.0/tools"
 DSQGEN_BIN="${DSQGEN_BIN:-$TOOLS/dsqgen}"
-TEMPLATES="$ROOT_DIR/Kit/DSGen-software-code-4.0.0/query_templates"
-QUERY_ROOT="$ROOT_DIR/queries"
+RNGSEED="${RNGSEED:-}"
+TEMPLATES="${TEMPLATE_DIR:-$ROOT_DIR/Kit/DSGen-software-code-4.0.0/query_templates}"
+QUERY_ROOT="${QUERY_ROOT:-$ROOT_DIR/queries}"
 LEGACY_OUTPUT="$QUERY_ROOT/all_templates"
-RESULTS="$ROOT_DIR/results"
+RESULTS="${RESULTS_DIR:-$ROOT_DIR/results}"
+
+if [[ "$TEMPLATES" != /* ]]; then
+    TEMPLATES="$ROOT_DIR/$TEMPLATES"
+fi
+if [[ "$QUERY_ROOT" != /* ]]; then
+    QUERY_ROOT="$ROOT_DIR/$QUERY_ROOT"
+    LEGACY_OUTPUT="$QUERY_ROOT/all_templates"
+fi
+if [[ "$RESULTS" != /* ]]; then
+    RESULTS="$ROOT_DIR/$RESULTS"
+fi
 
 SCALES=("$@")
 if ((${#SCALES[@]} == 0)); then
@@ -94,6 +106,16 @@ for scale in "${SCALES[@]}"; do
         error_file="$OUTPUT/${base}.generation.err"
 
         rm -f -- "$sql_file" "$error_file"
+        dsqgen_args=(
+            -DIRECTORY "$TEMPLATES"
+            -TEMPLATE "$template"
+            -DIALECT duckdb
+            -SCALE "$scale"
+            -FILTER Y
+        )
+        if [[ -n "$RNGSEED" ]]; then
+            dsqgen_args+=(-RNGSEED "$RNGSEED")
+        fi
         if (
             "$DSQGEN_BIN" \
                 -DIRECTORY "$NORMALIZED_TEMPLATES" \
