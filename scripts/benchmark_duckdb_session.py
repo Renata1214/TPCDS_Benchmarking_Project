@@ -333,7 +333,6 @@ def main():
     args = parse_args()
     root = args.root.resolve()
     query_root = root / "queries"
-    legacy_query_dir = query_root / "all_templates"
 
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     run_dir = root / "results" / "benchmark_runs" / run_id
@@ -390,8 +389,6 @@ def main():
                 )
 
             query_dir = query_root / tag
-            if not query_dir.is_dir():
-                query_dir = legacy_query_dir
             query_files = sorted(
                 (
                     path

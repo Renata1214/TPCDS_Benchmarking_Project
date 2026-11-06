@@ -144,13 +144,13 @@ def discover_scales(database_dir: Path, requested_scales: List[int]) -> List[int
 
 def query_files_for_scale(query_root: Path, scale_gb: int) -> Dict[int, Path]:
     selected: Dict[int, Path] = {}
-    for directory in (query_root / "all_templates", query_root / f"sf{scale_gb}"):
-        if not directory.is_dir():
-            continue
-        for path in directory.glob("query*.sql"):
-            match = QUERY_FILENAME.fullmatch(path.name)
-            if match and path.is_file():
-                selected[int(match.group("query"))] = path
+    directory = query_root / f"sf{scale_gb}"
+    if not directory.is_dir():
+        return selected
+    for path in directory.glob("query*.sql"):
+        match = QUERY_FILENAME.fullmatch(path.name)
+        if match and path.is_file():
+            selected[int(match.group("query"))] = path
     return selected
 
 

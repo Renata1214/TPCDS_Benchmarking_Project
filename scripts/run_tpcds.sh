@@ -6,7 +6,6 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$ROOT_DIR/scripts"
 TOOLS_DIR="$ROOT_DIR/Kit/DSGen-software-code-4.0.0/tools"
 TEMPLATES_DIR="$ROOT_DIR/Kit/DSGen-software-code-4.0.0/query_templates"
-QUERY_DIR="$ROOT_DIR/queries/all_templates"
 QUERY_SCALES=(1 2 4 8)
 GENERATE_DATA=0
 
@@ -49,7 +48,7 @@ command -v timeout >/dev/null 2>&1 || fail "GNU timeout is required."
 mapfile -t TEMPLATE_FILES < <(find "$TEMPLATES_DIR" -maxdepth 1 -type f -name 'query*.tpl' -printf '%f\n' | sort -V)
 ((${#TEMPLATE_FILES[@]} > 0)) || fail "No query templates found under $TEMPLATES_DIR."
 
-query_dirs=("$QUERY_DIR")
+query_dirs=()
 for scale in "${QUERY_SCALES[@]}"; do
     query_dirs+=("$ROOT_DIR/queries/sf$scale")
 done

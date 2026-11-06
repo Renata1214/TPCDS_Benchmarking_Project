@@ -117,15 +117,13 @@ def factor_scale(factor, reference):
 
 def query_files_for_scale(query_root, scale_gb):
     query_files = {}
-    legacy_dir = query_root / "all_templates"
     scale_dir = query_root / f"sf{scale_gb}"
-    for directory in (legacy_dir, scale_dir):
-        if not directory.is_dir():
-            continue
-        for path in directory.glob("query*.sql"):
-            match = QUERY_FILENAME.fullmatch(path.name)
-            if match and path.is_file():
-                query_files[int(match.group(1))] = path
+    if not scale_dir.is_dir():
+        return query_files
+    for path in scale_dir.glob("query*.sql"):
+        match = QUERY_FILENAME.fullmatch(path.name)
+        if match and path.is_file():
+            query_files[int(match.group(1))] = path
     return query_files
 
 
@@ -341,8 +339,8 @@ def main():
             if not query_files:
                 raise SystemExit(
                     f"ERROR: No query*.sql files found under "
-                    f"{root / 'queries' / tag} or {root / 'queries' / 'all_templates'}. "
-                    "Run scripts/01_generate_queries.sh first."
+                    f"{root / 'queries' / tag}. "
+                    "Run scripts/01_generate_queries.sh for this scale first."
                 )
 
             output_root = args.output_dir / tag

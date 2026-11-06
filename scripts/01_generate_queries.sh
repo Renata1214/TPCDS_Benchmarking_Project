@@ -15,7 +15,6 @@ DSQGEN_BIN="${DSQGEN_BIN:-$TOOLS/dsqgen}"
 RNGSEED="${RNGSEED:-}"
 TEMPLATES="${TEMPLATE_DIR:-$ROOT_DIR/Kit/DSGen-software-code-4.0.0/query_templates}"
 QUERY_ROOT="${QUERY_ROOT:-$ROOT_DIR/queries}"
-LEGACY_OUTPUT="$QUERY_ROOT/all_templates"
 RESULTS="${RESULTS_DIR:-$ROOT_DIR/results}"
 
 if [[ "$TEMPLATES" != /* ]]; then
@@ -23,7 +22,6 @@ if [[ "$TEMPLATES" != /* ]]; then
 fi
 if [[ "$QUERY_ROOT" != /* ]]; then
     QUERY_ROOT="$ROOT_DIR/$QUERY_ROOT"
-    LEGACY_OUTPUT="$QUERY_ROOT/all_templates"
 fi
 if [[ "$RESULTS" != /* ]]; then
     RESULTS="$ROOT_DIR/$RESULTS"
@@ -158,12 +156,6 @@ for scale in "${SCALES[@]}"; do
     fi
 done
 
-if [[ -d "$QUERY_ROOT/sf1" ]]; then
-    mkdir -p "$LEGACY_OUTPUT"
-    find "$LEGACY_OUTPUT" -maxdepth 1 -type f -name 'query[0-9]*.sql' -delete
-    cp "$QUERY_ROOT/sf1"/query[0-9]*.sql "$LEGACY_OUTPUT"/
-fi
-
 echo
 if ((failed > 0)); then
     printf 'Generation finished with %s failure(s).\n' "$failed" >&2
@@ -177,5 +169,4 @@ for scale in "${SCALES[@]}"; do
     printf ' %s/sf%s' "$QUERY_ROOT" "$scale"
 done
 printf '\n'
-echo "Legacy SF1 queries:    $LEGACY_OUTPUT"
 echo "Report:                $REPORT"

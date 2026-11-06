@@ -88,14 +88,3 @@ for scale in "${SCALES[@]}"; do
     done
     printf 'Updated Queries 22, 47, and 74 at SF%s.\n' "$scale"
 done
-
-if [[ " ${SCALES[*]} " == *" 1 "* ]]; then
-    output_dir="$QUERY_ROOT/all_templates"
-    mkdir -p "$output_dir"
-    for query in "${QUERIES[@]}"; do
-        temporary_file="$(mktemp "$output_dir/.query${query}.sql.XXXXXX")"
-        cp -- "$QUERY_ROOT/sf1/query${query}.sql" "$temporary_file"
-        mv -f -- "$temporary_file" "$output_dir/query${query}.sql"
-    done
-    printf 'Updated Queries 22, 47, and 74 in all_templates from SF1.\n'
-fi
